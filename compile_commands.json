@@ -1,0 +1,20 @@
+[
+ {
+  "directory": "C:\\Users\\Eual\\Documents\\C++\\FTXUI",
+  "arguments": [
+   "g++",
+   "./src/test.cpp",
+   "-I{CPLUS_INCLUDE_PATH}",
+   "-L{C_LIBRARY_PATH}",
+   "-g",
+   "-Wall",
+   "-Wextra",
+   "-Wpedantic",
+   "-std=c++20",
+   "-lmingw32",
+   "-o",
+   "./build/e"
+  ],
+  "file": "./src/tr.cpp"
+ }
+]

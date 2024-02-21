@@ -1,6 +1,7 @@
 #ifndef _TODO_UI_HPP
 #define _TODO_UI_HPP
 #include "./todoCore.hpp"
+#include "transforms.hpp"
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -9,8 +10,8 @@
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/color.hpp>
 #include <iostream>
-#include <map>
 #include <string>
+#include <sys/stat.h>
 #include <vector>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/node/parse.h>
@@ -33,9 +34,10 @@ private:
   std::vector<todoCore::Workspace> workspaces;
   std::string wpName = "";
   std::string taskDesc = "";
-  int inputSelected;
   bool isInputState = false;
   ftxui::Component newInput;
+  ftxui::MenuEntryOption defaultTasksOption;
+  ftxui::MenuEntryOption defaultWorkspaceOption;
   ftxui::Component workspacePanel =
       ftxui::Container::Vertical({}, &workspaceSelected);
 
@@ -52,7 +54,7 @@ private:
     if (!isInputState) {
       if (event == ftxui::Event::Return) {
         if (workspacePanel->Focused()) {
-          updateTasksView(workspaceSelected, maintaskSelected);
+          updateAllView(workspaceSelected, maintaskSelected);
           if (tasksWindow->ChildCount() > 0)
             tasksWindow->ChildAt(0)->TakeFocus();
         }
@@ -74,14 +76,32 @@ private:
         saveData();
         return true;
       }
+      if (event == ftxui::Event::Character('c')) {
+        // complete a task
+        // horrible
+        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+            workspaces[workspaceSelected].tasks.size() > 0) {
+          auto &wp = workspaces[workspaceSelected].tasks[maintaskSelected];
+          wp.setCompleted();
+        }
+        updateAllView(workspaceSelected, maintaskSelected);
+        saveData();
+        return true;
+      }
+
       if (event == ftxui::Event::Character('d')) {
         // delete operation
         //
         if (workspacePanel->Focused()) {
           if (workspaces.size() > 0) {
             workspaces.erase(workspaces.begin() + workspaceSelected);
+            updataWorkplaceView(workspaceSelected - 1);
+            std::cerr << "Wp after deletion: " << workspaceSelected << "\n";
             updateTasksView(workspaceSelected, maintaskSelected);
-            updataWorkplaceView();
+            // focusing to task window if there are any tasks in the workspace
+            // after deletion
+            if (workspaces.size() > 0)
+              tasksWindow->TakeFocus();
           }
         } else if (tasksWindow->Focused()) {
           if (workspaces.size() > 0) {
@@ -129,11 +149,15 @@ private:
     option.placeholder = "Workspace " + std::to_string(workspaces.size() + 1);
 
     option.on_enter = [&] {
+      // NOTE: this could be a function itself
       if (wpName.length() == 0)
         wpName = "Workspace " + std::to_string(workspacePanel->ChildCount());
       ;
       todoCore::Workspace wp(workspaceSelected, wpName);
       insertWorkspace(workspaceSelected, wp);
+      updateAllView(workspaceSelected, maintaskSelected);
+      updataWorkplaceView(workspaceSelected);
+      tasksWindow->TakeFocus();
       saveData();
     };
 
@@ -150,7 +174,8 @@ private:
       if (index == i || workspaces.size() == 0)
         workspacePanel->Add(newInput);
       if (i < workspaces.size()) {
-        workspacePanel->Add(ftxui::MenuEntry(workspaces[i].name));
+        workspacePanel->Add(
+            ftxui::MenuEntry(workspaces[i].name, defaultWorkspaceOption));
       }
     }
 
@@ -187,8 +212,9 @@ private:
         tasksWindow->Add(newInput);
         continue;
       }
-      if (i < wpTasks.size())
+      if (i < wpTasks.size()) {
         tasksWindow->Add(ftxui::MenuEntry(wpTasks[i].desc));
+      }
     }
 
     isInputState = true;
@@ -238,22 +264,7 @@ private:
   //@breif: loads tasks and subsquent workplaces
   //
   //
-  void loadTasks() {
-    std::vector<std::string> workspaceNames = {"Work", "School", "Art",
-                                               "Gaming"};
 
-    int i = 0;
-    for (auto d : workspaceNames) {
-      todoCore::Workspace wp(i, d);
-      for (int j = 0; j < 5; j++)
-        wp.tasks.push_back(
-            todoCore::TodoTask(i, "Task " + std::to_string(j * i)));
-      workspaces.push_back(std::move(wp));
-      ;
-      workspacePanel->Add(ftxui::MenuEntry(d));
-      i++;
-    }
-  }
   void loadData() {
     // do something
     //
@@ -287,32 +298,61 @@ private:
     out << emitter.c_str();
     out.close();
   }
-  void updataWorkplaceView() {
+  void updataWorkplaceView(int index = -1) {
+    index = index < 0 ? workspaceSelected : index;
     // cannot be loaded unless there are loaded tasks
     workspacePanel->DetachAllChildren();
+    int wp_selected = 0;
     for (auto &wp : workspaces) {
-      workspacePanel->Add(ftxui::MenuEntry(wp.name));
+      // testing the style
+      //
+      if (wp_selected == index)
+        defaultWorkspaceOption.transform = selectedWorkspaceStyle;
+      else
+        defaultWorkspaceOption.transform = defaultWorkspaceStyle;
+      workspacePanel->Add(ftxui::MenuEntry(wp.name, defaultWorkspaceOption));
+      wp_selected++;
     }
-
+    defaultWorkspaceOption.transform = defaultWorkspaceStyle;
     // adding a dummy menu entry
-    if (workspacePanel->ChildCount() == 0)
-      workspacePanel->Add(ftxui::MenuEntry("Add New Workspace"));
-    workspacePanel->SetActiveChild(workspacePanel->ChildAt(0));
-    if (workspaceSelected < (int)workspacePanel->ChildCount())
-      workspacePanel->SetActiveChild(
-          workspacePanel->ChildAt(workspaceSelected));
+    if (workspacePanel->ChildCount() == 0) {
+      defaultWorkspaceOption.transform = selectedWorkspaceStyle;
+      workspacePanel->Add(
+          ftxui::MenuEntry("Add New Workspace", defaultWorkspaceOption));
+      workspacePanel->SetActiveChild(workspacePanel->ChildAt(0));
+    } else if (index < (int)workspacePanel->ChildCount()) {
+      workspacePanel->SetActiveChild(workspacePanel->ChildAt(index));
+    }
   }
   void updateTasksView(size_t workspaceIndex, size_t taskIndex) {
     // uodate the tasks based on the selected workplace
     tasksWindow->DetachAllChildren();
     if (workspaceIndex < workspaces.size())
       for (auto &task : workspaces[workspaceIndex].tasks) {
-        tasksWindow->Add(ftxui::MenuEntry(task.desc));
+        switch (task.status) {
+        case todoCore::TaskStatus::STARTED: {
+          defaultTasksOption.transform = defaultTaskStyle;
+          break;
+        }
+        case todoCore::TaskStatus::COMPLETED: {
+          defaultTasksOption.transform = defaultCompletedTaskStyle;
+          break;
+        }
+        case todoCore::TaskStatus::OVERDUE: {
+          break;
+        }
+        }
+        tasksWindow->Add(ftxui::MenuEntry(task.desc, defaultTasksOption));
       }
+    defaultTasksOption.transform = {};
     if (tasksWindow->ChildCount() == 0)
-      tasksWindow->Add(ftxui::MenuEntry("Add New Task"));
+      tasksWindow->Add(ftxui::MenuEntry("Add New Task", defaultTasksOption));
     if (taskIndex > 0)
       tasksWindow->SetActiveChild(tasksWindow->ChildAt(taskIndex - 1));
+  }
+  void updateAllView(int workspaceIndex, int taskIndex) {
+    updataWorkplaceView(workspaceIndex);
+    updateTasksView(workspaceIndex, taskIndex);
   }
   void renameWorkplace(size_t index) {
     if (index >= workspaces.size())
@@ -324,7 +364,7 @@ private:
     option.placeholder = wpName;
     option.on_enter = [&] {
       if (wpName.length() == 0)
-        workspaces[workspaceSelected].getName();
+        wpName = workspaces[workspaceSelected].getName();
       workspaces[workspaceSelected].setName(wpName);
       updataWorkplaceView();
       isInputState = false;
@@ -337,7 +377,8 @@ private:
         workspacePanel->Add(newInput);
         continue;
       }
-      workspacePanel->Add(ftxui::MenuEntry(workspaces[i].name));
+      workspacePanel->Add(
+          ftxui::MenuEntry(workspaces[i].name, defaultWorkspaceOption));
     }
 
     isInputState = true;
@@ -359,7 +400,7 @@ private:
         workspaceTasks.insert(workspaceTasks.begin() + maintaskSelected,
                               todoCore::TodoTask(maintaskSelected, taskDesc));
 
-      updateTasksView(workspaceSelected, maintaskSelected);
+      updateTasksView(workspaceSelected, maintaskSelected + 1);
       isInputState = false;
       saveData();
     };
@@ -377,13 +418,28 @@ private:
         // insert input element here
         tasksWindow->Add(newInput);
       }
-      if (i < workspaceTasks.size())
-        tasksWindow->Add(ftxui::MenuEntry(workspaceTasks[i].desc));
+      if (i < workspaceTasks.size()) {
+        switch (workspaceTasks[i].status) {
+        case todoCore::TaskStatus::STARTED: {
+          defaultTasksOption.transform = defaultTaskStyle;
+          break;
+        }
+        case todoCore::TaskStatus::COMPLETED: {
+          defaultTasksOption.transform = defaultCompletedTaskStyle;
+          break;
+        }
+        case todoCore::TaskStatus::OVERDUE: {
+          break;
+        }
+        }
+        tasksWindow->Add(
+            ftxui::MenuEntry(workspaceTasks[i].desc, defaultTasksOption));
+      }
+      isInputState = true;
+      taskDesc = ""; //"Task " + std::to_string(size + 1);
+      newInput->TakeFocus();
+      // std::vector<
     }
-    isInputState = true;
-    taskDesc = ""; //"Task " + std::to_string(size + 1);
-    newInput->TakeFocus();
-    // std::vector<
   }
 
 public:
@@ -393,8 +449,12 @@ public:
     auto comp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
     /* loadTasks(); */
 
+    defaultTasksOption.transform = defaultTaskStyle;
+
+    defaultWorkspaceOption.transform = defaultWorkspaceStyle;
     loadData();
     updataWorkplaceView();
+
     updateTasksView(workspaceSelected, maintaskSelected);
 
     Add(comp);

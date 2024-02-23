@@ -6,12 +6,12 @@
 #include <string>
 #include <sys/stat.h>
 #include <vector>
-#include <xstring>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/emittermanip.h>
 #include <yaml-cpp/emitterstyle.h>
 #include <yaml-cpp/node/node.h>
 #include <yaml-cpp/yaml.h>
+
 const int WORKPALCE_PROPERTY_COUNT = 4;
 const int TASK_PROPERTY_COUNT = 3;
 // the core for the todo list contains the objects of Workpalce
@@ -31,10 +31,19 @@ struct TodoTask {
     return id == tk.id;
   }
   void setCompleted() { status = TaskStatus::COMPLETED; }
+  inline void toggleCompleted() {
+    status = (status == TaskStatus::COMPLETED || status == TaskStatus::OVERDUE)
+                 ? TaskStatus::STARTED
+                 : TaskStatus::COMPLETED;
+  }
   int id;
   std::string desc;
   TaskStatus status;
-
+  static bool defaultSort(const todoCore::TodoTask &a,
+                          const todoCore::TodoTask &b) {
+    return b.status != todoCore::TaskStatus::STARTED &&
+           a.status != todoCore::TaskStatus::COMPLETED;
+  }
   friend std::ostream &operator<<(std::ostream &out, const TodoTask &tk) {
 
     std::string status;
@@ -251,6 +260,8 @@ template <> struct convert<todoCore::Workspace> {
     }
     return true;
   }
+
+  // naive and simple sorting of tasks;
 };
 
 } // namespace YAML

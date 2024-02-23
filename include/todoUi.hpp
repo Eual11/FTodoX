@@ -1,6 +1,7 @@
 #ifndef _TODO_UI_HPP
 #define _TODO_UI_HPP
 #include "./todoCore.hpp"
+#include "Utils.hpp"
 #include "transforms.hpp"
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
@@ -9,21 +10,26 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/color.hpp>
+#include <functional>
 #include <iostream>
+#include <ppltasks.h>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/node/parse.h>
-// TODO: SEVERAL BUG FIXES, the save and load are path dependant
-//  TODO: an ID for each task
-//   BUG: the status line gets squashed
-//    TODO: defeault input option
-//     the UI is one big component that holds two pain components namely
-//    TODO: delete opration is vage
-//     workspacePanel: is a vertical container with a given selector
-//     tasksWindow- is a veretical container that holds the tasks
-//
+
+// TODO: Sorting todos
+// TODO: UTF-8 support through wstrings
+//  TODO: SEVERAL BUG FIXES, the save and load are path dependant
+//   TODO: an ID for each task
+//    BUG: the status line gets squashed
+//     TODO: defeault input option
+//      the UI is one big component that holds two pain components namely
+//     TODO: delete opration is vage
+//      workspacePanel: is a vertical container with a given selector
+//      tasksWindow- is a veretical container that holds the tasks
+
 //     implemented tasks: inseertion, renaming /editing of both tasks and
 //     workplaces
 class todoUi : public ftxui::ComponentBase {
@@ -46,7 +52,7 @@ private:
 
   bool OnEvent(ftxui::Event event) override {
     if (isInputState && !newInput->Active()) {
-      updataWorkplaceView();
+      updateWorkplaceView();
       updateTasksView(workspaceSelected, maintaskSelected);
       isInputState = false;
       return true;
@@ -73,6 +79,7 @@ private:
           //
           createTask(workspaceSelected, maintaskSelected + 1);
         }
+
         saveData();
         return true;
       }
@@ -82,7 +89,7 @@ private:
         if (tasksWindow->Focused() && workspaces.size() > 0 &&
             workspaces[workspaceSelected].tasks.size() > 0) {
           auto &wp = workspaces[workspaceSelected].tasks[maintaskSelected];
-          wp.setCompleted();
+          wp.toggleCompleted();
         }
         updateAllView(workspaceSelected, maintaskSelected);
         saveData();
@@ -95,9 +102,9 @@ private:
         if (workspacePanel->Focused()) {
           if (workspaces.size() > 0) {
             workspaces.erase(workspaces.begin() + workspaceSelected);
-            updataWorkplaceView(workspaceSelected - 1);
+            updateWorkplaceView(workspaceSelected - 1);
             std::cerr << "Wp after deletion: " << workspaceSelected << "\n";
-            updateTasksView(workspaceSelected, maintaskSelected);
+            updateTasksView(workspaceSelected, maintaskSelected - 1);
             // focusing to task window if there are any tasks in the workspace
             // after deletion
             if (workspaces.size() > 0)
@@ -110,7 +117,7 @@ private:
               std::cerr << "wp: " << workspaceSelected
                         << "ms: " << maintaskSelected << "\n";
               wpTasks.erase(wpTasks.begin() + maintaskSelected);
-              updateTasksView(workspaceSelected, maintaskSelected);
+              updateTasksView(workspaceSelected, maintaskSelected - 1);
             }
           }
         }
@@ -140,7 +147,7 @@ private:
 
   void insertWorkspace(size_t index, todoCore::Workspace &workspace) {
     workspaces.insert(workspaces.begin() + index, workspace);
-    updataWorkplaceView();
+    updateWorkplaceView();
     isInputState = false;
   }
   void createWorkspace(size_t index) {
@@ -156,7 +163,7 @@ private:
       todoCore::Workspace wp(workspaceSelected, wpName);
       insertWorkspace(workspaceSelected, wp);
       updateAllView(workspaceSelected, maintaskSelected);
-      updataWorkplaceView(workspaceSelected);
+      updateWorkplaceView(workspaceSelected);
       tasksWindow->TakeFocus();
       saveData();
     };
@@ -213,7 +220,8 @@ private:
         continue;
       }
       if (i < wpTasks.size()) {
-        tasksWindow->Add(ftxui::MenuEntry(wpTasks[i].desc));
+        addToTaskWindow(wpTasks[i]);
+        /* tasksWindow->Add(ftxui::MenuEntry(wpTasks[i].desc)); */
       }
     }
 
@@ -223,42 +231,50 @@ private:
   }
   ftxui::Element Render() override {
 
-    auto mainView =
-        ftxui::hbox({workspacePanel->Render() |
-                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30) |
-                         ftxui::frame | ftxui::border,
+    using namespace ftxui;
+    // TODO: make this neater any how
+    // basically all it does is styling the header for workspace and tasks
+    // window based on their focus state
+    auto workspaceHeaderColor = color(hexToRGB("#080716"));
+    auto workspaceHeaderBGcolor = bgcolor(hexToRGB("#809be5"));
+    if (!workspacePanel->Focused()) {
+      workspaceHeaderColor = color(hexToRGB("#e7ebfa"));
+      workspaceHeaderBGcolor = bgcolor(hexToRGB("#363e5b"));
+    }
+    auto tasksHeaderColor = color(hexToRGB("#080716"));
+    auto tasksHeaderBGcolor = bgcolor(hexToRGB("#809be5"));
+    if (!tasksWindow->Focused()) {
+      tasksHeaderColor = color(hexToRGB("#e7ebfa"));
+      tasksHeaderBGcolor = bgcolor(hexToRGB("#363e5b"));
+    }
+    // the text element with a filler is the header the empty text("") acts as a
+    // seprarator (maybe change it to an empty element)
+    auto workspaceview =
+        vbox({hbox({text("Workspaces"), filler()}) | workspaceHeaderBGcolor |
+                  workspaceHeaderColor | hcenter,
+              text(""), workspacePanel->Render()});
 
-                     tasksWindow->Render() | ftxui::border | ftxui::flex_grow});
+    auto taskView = vbox({hbox({text("Tasks "), filler()}) | tasksHeaderColor |
+                              tasksHeaderBGcolor | center,
+                          text(""), tasksWindow->Render()});
 
-    auto statusLine =
-        ftxui::hbox({ftxui::text("Status") | ftxui::flex_grow | ftxui::border});
+    auto mainView = ftxui::hbox(
+        {workspaceview | hcenter | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30) |
+             ftxui::frame | todoBorderStyle,
 
-    return ftxui::window(ftxui::text("FTXodo") | ftxui::center,
-                         ftxui::vbox({mainView | ftxui::flex_grow,
-                                      statusLine | ftxui::xflex_grow}));
+         taskView | vscroll_indicator | flex | yframe | todoBorderStyle});
+    // TODO: styling for statys line
+    auto statusLine = ftxui::hbox(
+        {ftxui::text("Normal ") | statusLineColor | statusLineBGcolor,
+         ftxui::filler()});
+
+    return ftxui::vbox({mainView | ftxui::flex,
+                        statusLine |
+                            ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1) |
+                            ftxui::xflex_grow}) |
+           ftxui::bgcolor(ftxui::Color(hexToRGB(todobgColor)));
     //|
     //     ftxui::bgcolor(ftxui::Color(hexToRGB("#21283b")));
-  }
-
-  ftxui::Color hexToRGB(std::string hex) {
-
-    int i = 0;
-    uint32_t rgb = 0x00;
-    for (std::string::reverse_iterator iter = hex.rbegin(); iter != hex.rend();
-         iter++, i++) {
-      unsigned int val = 0;
-      if (std::isalpha(*iter) && *iter >= 'a' && *iter <= 'f') {
-
-        val = 10 + *iter - 'a';
-
-      } else if (*iter >= '0' && *iter <= '9') {
-        val = *iter - '0';
-      } else
-        val = 0;
-      rgb += val * std::pow(16, i);
-    }
-    return ftxui::Color(rgb >> 16, (rgb & 0xff00) >> 8, rgb & 0xff);
-    /* return rgb >> 8 & 0x00ff00; */
   }
 
   //@breif: loads tasks and subsquent workplaces
@@ -298,7 +314,7 @@ private:
     out << emitter.c_str();
     out.close();
   }
-  void updataWorkplaceView(int index = -1) {
+  void updateWorkplaceView(int index = -1) {
     index = index < 0 ? workspaceSelected : index;
     // cannot be loaded unless there are loaded tasks
     workspacePanel->DetachAllChildren();
@@ -324,34 +340,28 @@ private:
       workspacePanel->SetActiveChild(workspacePanel->ChildAt(index));
     }
   }
-  void updateTasksView(size_t workspaceIndex, size_t taskIndex) {
+  void updateTasksView(int workspaceIndex, int taskIndex) {
     // uodate the tasks based on the selected workplace
+    std::cerr << "Task index " << taskIndex << "\n";
     tasksWindow->DetachAllChildren();
-    if (workspaceIndex < workspaces.size())
+    if (workspaceIndex < (int)workspaces.size()) {
+      sortTasks(workspaces[workspaceIndex].tasks,
+                todoCore::TodoTask::defaultSort);
+
       for (auto &task : workspaces[workspaceIndex].tasks) {
-        switch (task.status) {
-        case todoCore::TaskStatus::STARTED: {
-          defaultTasksOption.transform = defaultTaskStyle;
-          break;
-        }
-        case todoCore::TaskStatus::COMPLETED: {
-          defaultTasksOption.transform = defaultCompletedTaskStyle;
-          break;
-        }
-        case todoCore::TaskStatus::OVERDUE: {
-          break;
-        }
-        }
-        tasksWindow->Add(ftxui::MenuEntry(task.desc, defaultTasksOption));
+        addToTaskWindow(task);
       }
-    defaultTasksOption.transform = {};
+    }
     if (tasksWindow->ChildCount() == 0)
       tasksWindow->Add(ftxui::MenuEntry("Add New Task", defaultTasksOption));
-    if (taskIndex > 0)
-      tasksWindow->SetActiveChild(tasksWindow->ChildAt(taskIndex - 1));
+    if (taskIndex >= 0)
+      tasksWindow->SetActiveChild(
+          tasksWindow->ChildAt(taskIndex)); // WARNING: why -1?
+    else
+      tasksWindow->SetActiveChild(tasksWindow->ChildAt(0));
   }
   void updateAllView(int workspaceIndex, int taskIndex) {
-    updataWorkplaceView(workspaceIndex);
+    updateWorkplaceView(workspaceIndex);
     updateTasksView(workspaceIndex, taskIndex);
   }
   void renameWorkplace(size_t index) {
@@ -366,7 +376,7 @@ private:
       if (wpName.length() == 0)
         wpName = workspaces[workspaceSelected].getName();
       workspaces[workspaceSelected].setName(wpName);
-      updataWorkplaceView();
+      updateWorkplaceView();
       isInputState = false;
       saveData();
     };
@@ -400,7 +410,7 @@ private:
         workspaceTasks.insert(workspaceTasks.begin() + maintaskSelected,
                               todoCore::TodoTask(maintaskSelected, taskDesc));
 
-      updateTasksView(workspaceSelected, maintaskSelected + 1);
+      updateTasksView(workspaceSelected, maintaskSelected);
       isInputState = false;
       saveData();
     };
@@ -419,27 +429,42 @@ private:
         tasksWindow->Add(newInput);
       }
       if (i < workspaceTasks.size()) {
-        switch (workspaceTasks[i].status) {
-        case todoCore::TaskStatus::STARTED: {
-          defaultTasksOption.transform = defaultTaskStyle;
-          break;
-        }
-        case todoCore::TaskStatus::COMPLETED: {
-          defaultTasksOption.transform = defaultCompletedTaskStyle;
-          break;
-        }
-        case todoCore::TaskStatus::OVERDUE: {
-          break;
-        }
-        }
-        tasksWindow->Add(
-            ftxui::MenuEntry(workspaceTasks[i].desc, defaultTasksOption));
+        addToTaskWindow(workspaceTasks[i]);
       }
-      isInputState = true;
-      taskDesc = ""; //"Task " + std::to_string(size + 1);
-      newInput->TakeFocus();
-      // std::vector<
     }
+    isInputState = true;
+    taskDesc = ""; //"Task " + std::to_string(size + 1);
+    newInput->TakeFocus();
+  }
+  // adds a task to the taskWIndow
+  void addToTaskWindow(todoCore::TodoTask &task) {
+    ftxui::MenuEntryOption entry_option;
+    switch (task.status) {
+    case todoCore::TaskStatus::STARTED: {
+      entry_option.transform = defaultTaskStyle;
+      break;
+    }
+    case todoCore::TaskStatus::COMPLETED: {
+      entry_option.transform = defaultCompletedTaskStyle;
+      break;
+    }
+    case todoCore::TaskStatus::OVERDUE: {
+      break;
+    }
+    }
+    tasksWindow->Add(ftxui::MenuEntry(task.desc, entry_option));
+  }
+  void addToWorkspacePanel(todoCore::Workspace &wp) {
+    ftxui::MenuEntryOption entry_option;
+    entry_option.transform = defaultWorkspaceStyle;
+    workspacePanel->Add(ftxui::MenuEntry(wp.name, entry_option));
+  }
+
+  void sortTasks(std::vector<todoCore::TodoTask> &tasks,
+                 std::function<bool(const todoCore::TodoTask &,
+                                    const todoCore::TodoTask &)>
+                     func) {
+    std::sort(tasks.begin(), tasks.end(), func);
   }
 
 public:
@@ -449,14 +474,9 @@ public:
     auto comp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
     /* loadTasks(); */
 
-    defaultTasksOption.transform = defaultTaskStyle;
-
     defaultWorkspaceOption.transform = defaultWorkspaceStyle;
     loadData();
-    updataWorkplaceView();
-
-    updateTasksView(workspaceSelected, maintaskSelected);
-
+    updateAllView(workspaceSelected, maintaskSelected);
     Add(comp);
   }
 };

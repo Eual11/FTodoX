@@ -1,6 +1,7 @@
 #ifndef _TODO_UI_HPP
 #define _TODO_UI_HPP
 #include "./todoCore.hpp"
+#include "Transformer.hpp"
 #include "Utils.hpp"
 #include "transforms.hpp"
 #include <ftxui/component/component.hpp>
@@ -12,9 +13,7 @@
 #include <ftxui/screen/color.hpp>
 #include <functional>
 #include <iostream>
-#include <ppltasks.h>
 #include <string>
-#include <sys/stat.h>
 #include <vector>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/node/parse.h>
@@ -42,6 +41,8 @@ private:
   std::string taskDesc = "";
   bool isInputState = false;
   ftxui::Component newInput;
+  Transformer todoTransformer;
+
   ftxui::MenuEntryOption defaultTasksOption;
   ftxui::MenuEntryOption defaultWorkspaceOption;
   ftxui::Component workspacePanel =
@@ -154,7 +155,9 @@ private:
     ftxui::InputOption option;
     option.multiline = false;
     option.placeholder = "Workspace " + std::to_string(workspaces.size() + 1);
-
+    todoCore::Workspace dummy(1, "dummy");
+    dummy.tasks = {};
+    option.transform = todoTransformer.StyleWorkspaceInput(dummy);
     option.on_enter = [&] {
       // NOTE: this could be a function itself
       if (wpName.length() == 0)
@@ -201,6 +204,8 @@ private:
     option.multiline = false;
     taskDesc = wpTasks[taskIndex].desc;
     option.placeholder = taskDesc;
+    option.content = taskDesc;
+    option.transform = todoTransformer.StyleTaskInput(wpTasks[taskIndex]);
     option.on_enter = [&] {
       if (taskDesc != "")
         wpTasks[maintaskSelected].desc = taskDesc;
@@ -272,7 +277,7 @@ private:
                         statusLine |
                             ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1) |
                             ftxui::xflex_grow}) |
-           ftxui::bgcolor(ftxui::Color(hexToRGB(todobgColor)));
+           ftxui::bgcolor(ftxui::Color(hexToRGB(todoTransformer.todobgColor)));
     //|
     //     ftxui::bgcolor(ftxui::Color(hexToRGB("#21283b")));
   }
@@ -322,17 +327,19 @@ private:
     for (auto &wp : workspaces) {
       // testing the style
       //
-      if (wp_selected == index)
-        defaultWorkspaceOption.transform = selectedWorkspaceStyle;
-      else
-        defaultWorkspaceOption.transform = defaultWorkspaceStyle;
+      //
+      defaultWorkspaceOption.transform =
+          todoTransformer.StyleWorkspace(wp, index == wp_selected);
       workspacePanel->Add(ftxui::MenuEntry(wp.name, defaultWorkspaceOption));
       wp_selected++;
     }
-    defaultWorkspaceOption.transform = defaultWorkspaceStyle;
+    todoCore::Workspace dummy(1, "test"); // dummy empty workspace
+    defaultWorkspaceOption.transform =
+        todoTransformer.StyleWorkspace(dummy, false);
     // adding a dummy menu entry
     if (workspacePanel->ChildCount() == 0) {
-      defaultWorkspaceOption.transform = selectedWorkspaceStyle;
+      defaultWorkspaceOption.transform = todoTransformer.StyleWorkspace(
+          dummy, true); // syling the dummy workspace
       workspacePanel->Add(
           ftxui::MenuEntry("Add New Workspace", defaultWorkspaceOption));
       workspacePanel->SetActiveChild(workspacePanel->ChildAt(0));
@@ -369,9 +376,12 @@ private:
       return;
     ftxui::InputOption option;
     option.multiline = false;
+    option.transform =
+        todoTransformer.StyleWorkspaceInput(workspaces[workspaceSelected]);
     wpName = workspaces[workspaceSelected].getName();
     // option.placeholder = workspaces[workspaceSelected].getName();
     option.placeholder = wpName;
+    option.content = wpName;
     option.on_enter = [&] {
       if (wpName.length() == 0)
         wpName = workspaces[workspaceSelected].getName();
@@ -381,12 +391,15 @@ private:
       saveData();
     };
     newInput = Input(&wpName, option);
+    todoCore::Workspace dummy(1, "test");
     workspacePanel->DetachAllChildren();
     for (size_t i = 0; i < workspaces.size(); i++) {
       if (index == i) {
         workspacePanel->Add(newInput);
         continue;
       }
+      defaultWorkspaceOption.transform =
+          todoTransformer.StyleWorkspace(workspaces[i], false);
       workspacePanel->Add(
           ftxui::MenuEntry(workspaces[i].name, defaultWorkspaceOption));
     }
@@ -401,6 +414,8 @@ private:
 
     ftxui::InputOption option;
     option.multiline = false;
+    todoCore::TodoTask dummy(1, "Task");
+    option.transform = todoTransformer.StyleTaskInput(dummy);
     option.placeholder =
         "Task " + std::to_string(workspaces[workspaceIndex].tasks.size() + 1);
     option.on_enter = [&] {
@@ -439,24 +454,12 @@ private:
   // adds a task to the taskWIndow
   void addToTaskWindow(todoCore::TodoTask &task) {
     ftxui::MenuEntryOption entry_option;
-    switch (task.status) {
-    case todoCore::TaskStatus::STARTED: {
-      entry_option.transform = defaultTaskStyle;
-      break;
-    }
-    case todoCore::TaskStatus::COMPLETED: {
-      entry_option.transform = defaultCompletedTaskStyle;
-      break;
-    }
-    case todoCore::TaskStatus::OVERDUE: {
-      break;
-    }
-    }
+    entry_option.transform = todoTransformer.StyleTask(task);
     tasksWindow->Add(ftxui::MenuEntry(task.desc, entry_option));
   }
   void addToWorkspacePanel(todoCore::Workspace &wp) {
     ftxui::MenuEntryOption entry_option;
-    entry_option.transform = defaultWorkspaceStyle;
+    entry_option.transform = todoTransformer.StyleWorkspace(wp, true); // BUG:
     workspacePanel->Add(ftxui::MenuEntry(wp.name, entry_option));
   }
 
@@ -473,8 +476,7 @@ public:
     // test for the container
     auto comp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
     /* loadTasks(); */
-
-    defaultWorkspaceOption.transform = defaultWorkspaceStyle;
+    /* defaultWorkspaceOption.transform = defaultWorkspaceStyle; */
     loadData();
     updateAllView(workspaceSelected, maintaskSelected);
     Add(comp);

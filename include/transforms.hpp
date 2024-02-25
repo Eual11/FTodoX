@@ -9,21 +9,51 @@
 #include <string>
 
 // NOTE: I THINK THIS SHOULD BE A CLASS WITH IT'S OWN NAME SPACE
-std::string todobgColor = "#21283b"; // default bavground color for the app
-auto todoBorderStyle = ftxui::borderLight; // border style
+
+// varuable naning state (selected, type, task/workspace)
+//  colors
+
+// varuable naning state (selected, type, task/workspace)
+//  colors
+auto todoBorderStyle = ftxui::borderLight;
+; // border style
 auto statusLineBGcolor = ftxui::bgcolor(hexToRGB("#8bcd5b"));
 auto statusLineColor = ftxui::color(hexToRGB("#141018"));
-// transform for selcted workspaces
+// transform for selcted workspaces =
+
+// colors
+auto inputTextColor = ftxui::color(hexToRGB("#9fd1fa"));
+
+auto selectedTaskBGcolor = ftxui::bgcolor(hexToRGB("#373e4f"));
+auto selectedWorkspaceBGcolor = ftxui::bgcolor(hexToRGB("#373e4f"));
+auto workspaceColor =
+    color(hexToRGB("#93a4c3")); // text color for non selecte workspace
+auto selectedWorkspaceColor = color(hexToRGB("#93a4c3"));
+auto pendingTaskColor = ftxui::color(hexToRGB("#ebcb8b"));
+auto pendingTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
+auto completedTaskColor = ftxui::color(hexToRGB("#98c379"));
+auto compeletedTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
+
+std::string todobgColor = "#21283b"; // default bavground color for the app
+// icons
+std::string workspacePointer = ""; // the pointer in workspace;
+std::string taskPointer = "";
+std::string nonEmptyWorkspaceIcon = "";
+std::string pendingTaskIcon = "";
+std::string completedTaskIcon = "";
 ftxui::Element selectedWorkspaceStyle(const ftxui::EntryState &state) {
-  std::string label = "  ";
+
+  std::string label = workspacePointer + " " + nonEmptyWorkspaceIcon + " ";
   return ftxui::hbox({ftxui::text(label), ftxui::text(state.label)}) |
-         ftxui::bgcolor(ftxui::Color::RGB(55, 62, 79));
+         selectedWorkspaceBGcolor | selectedWorkspaceColor;
 }
 
 // default style for all workplace entries
 ftxui::Element defaultWorkspaceStyle(const ftxui::EntryState &state) {
-  std::string label = (state.focused ? "  " : "   ");
-  auto workspaceColor = color(hexToRGB("#93a4c3"));
+  std::string label =
+      (state.focused ? workspacePointer + " " + nonEmptyWorkspaceIcon + " "
+                     : "  " + nonEmptyWorkspaceIcon + " ");
+
   ftxui::Element entry =
       ftxui::hbox({ftxui::text(label), ftxui::text(state.label)}) |
       ftxui::xflex_grow | workspaceColor;
@@ -40,25 +70,21 @@ ftxui::Element defaultTaskStyle(const ftxui::EntryState &state) {
   /* ftxui::Element entry = ftxui::text(std::move(label)); Documents and
    * Settings*/
 
-  auto completedTaskColor = ftxui::color(hexToRGB("#ebcb8b"));
-  auto compeletedTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
-
-  std::string pointer = "";
-  std::string checkbox = " ";
+  std::string icon;
   if (state.focused)
-    checkbox = pointer + " " + checkbox;
+    icon = taskPointer + " " + pendingTaskIcon + " ";
   else
-    checkbox = "  " + checkbox;
+    icon = "  " + pendingTaskIcon + " ";
   ftxui::Element entry =
-      ftxui::hbox({ftxui::text(checkbox), ftxui::text(state.label)}) |
-      completedTaskColor;
+      ftxui::hbox({ftxui::text(icon), ftxui::text(state.label)}) |
+      pendingTaskColor;
   ;
   if (state.active) {
-    entry |= ftxui::bold | compeletedTaskBackground; // NOTE: please remove this
+    entry |= ftxui::bold | pendingTaskColor; // NOTE: please remove this
     ;
   }
   if (state.focused) {
-    entry |= ftxui::bold | compeletedTaskBackground;
+    entry |= ftxui::bold | pendingTaskBackground;
   }
 
   return entry;
@@ -66,19 +92,14 @@ ftxui::Element defaultTaskStyle(const ftxui::EntryState &state) {
 
 // default style for completed to do tasks
 ftxui::Element defaultCompletedTaskStyle(const ftxui::EntryState &state) {
-  std::string label =
-      state.focused ? ">  " + state.label : "  " + state.label;
   /* ftxui::Element entry = ftxui::text(std::move(label)); */
-  std::string pointer = "";
-  std::string checkbox = " ";
-  auto completedTaskColor = ftxui::color(hexToRGB("#98c379"));
-  auto compeletedTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
+  std::string icon;
   if (state.focused)
-    checkbox = pointer + " " + checkbox;
+    icon = taskPointer + " " + completedTaskIcon + " ";
   else
-    checkbox = "  " + checkbox;
+    icon = "  " + completedTaskIcon + " ";
   ftxui::Element entry =
-      ftxui::hbox({ftxui::text(checkbox), ftxui::text(state.label)}) |
+      ftxui::hbox({ftxui::text(icon), ftxui::text(state.label)}) |
       completedTaskColor;
   if (state.active) {
     entry |= ftxui::bold | completedTaskColor;
@@ -90,6 +111,36 @@ ftxui::Element defaultCompletedTaskStyle(const ftxui::EntryState &state) {
     ;
   }
 
+  return entry;
+}
+
+ftxui::Element defaultTaskInputStyle(ftxui::InputState state) {
+
+  std::string pointer;
+  ;
+  std::string checkbox;
+  if (state.is_placeholder)
+    state.element |= ftxui::dim;
+  if (state.focused)
+    checkbox = taskPointer + " " + pendingTaskIcon + " ";
+  else
+    checkbox = "  " + pendingTaskIcon + " ";
+  ftxui::Element entry = ftxui::hbox({ftxui::text(checkbox), state.element}) |
+                         selectedTaskBGcolor | inputTextColor;
+  return entry;
+}
+
+ftxui::Element defaultWorkspaceInputStyle(ftxui::InputState state) {
+
+  std::string icon;
+  if (state.is_placeholder)
+    state.element |= ftxui::dim;
+  if (state.focused)
+    icon = workspacePointer + " " + nonEmptyWorkspaceIcon + " ";
+  else
+    icon = "  " + nonEmptyWorkspaceIcon;
+  ftxui::Element entry = ftxui::hbox({ftxui::text(icon), state.element}) |
+                         selectedWorkspaceBGcolor | inputTextColor;
   return entry;
 }
 #endif

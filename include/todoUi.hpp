@@ -4,6 +4,7 @@
 #include "Transformer.hpp"
 #include "Utils.hpp"
 #include "transforms.hpp"
+#include <chrono>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -18,16 +19,15 @@
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/node/parse.h>
 
-// TODO: Sorting todos
-// TODO: UTF-8 support through wstrings
-//  TODO: SEVERAL BUG FIXES, the save and load are path dependant
-//   TODO: an ID for each task
-//    BUG: the status line gets squashed
-//     TODO: defeault input option
-//      the UI is one big component that holds two pain components namely
-//     TODO: delete opration is vage
-//      workspacePanel: is a vertical container with a given selector
-//      tasksWindow- is a veretical container that holds the tasks
+//  TODO: Sorting todos
+//   TODO: SEVERAL BUG FIXES, the save and load are path dependant
+//    TODO: an ID for each task
+//     BUG: the status line gets squashed
+//      TODO: defeault input option
+//       the UI is one big component that holds two pain components namely
+//      TODO: delete opration is vage
+//       workspacePanel: is a vertical container with a given selector
+//       tasksWindow- is a veretical container that holds the tasks
 
 //     implemented tasks: inseertion, renaming /editing of both tasks and
 //     workplaces
@@ -39,6 +39,8 @@ private:
   std::vector<todoCore::Workspace> workspaces;
   std::string wpName = "";
   std::string taskDesc = "";
+  std::string date = "";
+  std::string StatusLineMode = "NORMAL";
   bool isInputState = false;
   ftxui::Component newInput;
   Transformer todoTransformer;
@@ -51,10 +53,12 @@ private:
   ftxui::Component tasksWindow =
       ftxui::Container::Vertical({}, &maintaskSelected);
 
+  ftxui::Component statusLine = ftxui::Container::Horizontal({});
   bool OnEvent(ftxui::Event event) override {
     if (isInputState && !newInput->Active()) {
       updateWorkplaceView();
       updateTasksView(workspaceSelected, maintaskSelected);
+      updateStatusLineView(maintaskSelected);
       isInputState = false;
       return true;
     }
@@ -64,8 +68,10 @@ private:
           updateAllView(workspaceSelected, maintaskSelected);
           if (tasksWindow->ChildCount() > 0)
             tasksWindow->ChildAt(0)->TakeFocus();
+          StatusLineMode = "NORMAL";
         }
         // WARNING: MAYEB NOT?
+        StatusLineMode = "NORMAL";
         return true;
       }
       if (event == ftxui::Event::Character('a')) {
@@ -78,8 +84,11 @@ private:
         } else if (tasksWindow->Focused()) {
           // insertion on tasks
           //
+          //
+
           createTask(workspaceSelected, maintaskSelected + 1);
         }
+        StatusLineMode = "INSERT";
 
         saveData();
         return true;
@@ -98,6 +107,39 @@ private:
       }
 
       if (event == ftxui::Event::Character('d')) {
+
+        if (tasksWindow->Focused() &&
+            workspaces[workspaceSelected].tasks.size() > 0) {
+          ftxui::InputOption option;
+          option.multiline = false;
+          option.placeholder = "Date and Time ";
+          todoCore::Workspace dummy;
+          option.transform = todoTransformer.StyleWorkspaceInput(dummy);
+
+          option.on_enter = [&] {
+            isInputState = false;
+            workspaces[workspaceSelected].tasks[maintaskSelected].parseDueDate(
+                date);
+            std::cerr << " "
+                      << workspaces[workspaceSelected]
+                             .tasks[maintaskSelected]
+                             .getDeadline()
+                      << std::endl;
+            date = "";
+            saveData();
+            updateAllView(workspaceSelected, maintaskSelected);
+          };
+
+          newInput = ftxui::Input(&date, option);
+          statusLine->DetachAllChildren();
+          statusLine->Add(newInput);
+          isInputState = true;
+          newInput->TakeFocus();
+        }
+
+        return true;
+      }
+      if (event == ftxui::Event::Character('x')) {
         // delete operation
         //
         if (workspacePanel->Focused()) {
@@ -132,14 +174,38 @@ private:
         if (workspacePanel->Focused()) {
           // rename
           //
-
+          StatusLineMode = "INSERT";
           renameWorkplace(workspaceSelected);
         } else if (tasksWindow->Focused()) {
+          StatusLineMode = "INSERT";
           editTask(workspaceSelected, maintaskSelected);
         }
 
         saveData();
         return true;
+      }
+      if (event == ftxui::Event::Character('+')) {
+        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+            maintaskSelected <
+                (int)workspaces[workspaceSelected].tasks.size()) {
+          auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
+          task.increaseUrgency();
+          std::cerr << task << std::endl;
+          updateAllView(workspaceSelected, maintaskSelected);
+          saveData();
+        }
+      }
+      if (event == ftxui::Event::Character('-')) {
+        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+            maintaskSelected <
+                (int)workspaces[workspaceSelected].tasks.size()) {
+          auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
+
+          task.decreaseUrgency();
+          std::cerr << task << std::endl;
+          updateAllView(workspaceSelected, maintaskSelected);
+          saveData();
+        }
       }
     }
 
@@ -168,6 +234,7 @@ private:
       updateAllView(workspaceSelected, maintaskSelected);
       updateWorkplaceView(workspaceSelected);
       tasksWindow->TakeFocus();
+      StatusLineMode = "NORMAL";
       saveData();
     };
 
@@ -212,6 +279,7 @@ private:
 
       updateTasksView(workspaceSelected, maintaskSelected);
       isInputState = false;
+      StatusLineMode = "NORMAL";
       saveData();
     };
 
@@ -269,12 +337,12 @@ private:
 
          taskView | vscroll_indicator | flex | yframe | todoBorderStyle});
     // TODO: styling for statys line
-    auto statusLine = ftxui::hbox(
-        {ftxui::text("Normal ") | statusLineColor | statusLineBGcolor,
-         ftxui::filler()});
+    auto statusLineView = ftxui::hbox(
+        {ftxui::text(StatusLineMode) | statusLineColor | statusLineBGcolor,
+         statusLine->Render(), ftxui::filler()});
 
     return ftxui::vbox({mainView | ftxui::flex,
-                        statusLine |
+                        statusLineView |
                             ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1) |
                             ftxui::xflex_grow}) |
            ftxui::bgcolor(ftxui::Color(hexToRGB(todoTransformer.todobgColor)));
@@ -319,6 +387,15 @@ private:
     out << emitter.c_str();
     out.close();
   }
+  void updateStatusLineView(int index) {
+    statusLine->DetachAllChildren();
+    auto comp = ftxui::Renderer([&] { return ftxui::text(""); });
+
+    statusLine->Add(comp);
+    tasksWindow->TakeFocus(); // NOTE: remove this
+    if (index >= 0 && index < tasksWindow->ChildCount())
+      tasksWindow->SetActiveChild(tasksWindow->ChildAt(index));
+  }
   void updateWorkplaceView(int index = -1) {
     index = index < 0 ? workspaceSelected : index;
     // cannot be loaded unless there are loaded tasks
@@ -349,13 +426,13 @@ private:
   }
   void updateTasksView(int workspaceIndex, int taskIndex) {
     // uodate the tasks based on the selected workplace
-    std::cerr << "Task index " << taskIndex << "\n";
     tasksWindow->DetachAllChildren();
     if (workspaceIndex < (int)workspaces.size()) {
       sortTasks(workspaces[workspaceIndex].tasks,
                 todoCore::TodoTask::defaultSort);
 
       for (auto &task : workspaces[workspaceIndex].tasks) {
+        task.updateStatus();
         addToTaskWindow(task);
       }
     }
@@ -370,6 +447,7 @@ private:
   void updateAllView(int workspaceIndex, int taskIndex) {
     updateWorkplaceView(workspaceIndex);
     updateTasksView(workspaceIndex, taskIndex);
+    updateStatusLineView(taskIndex);
   }
   void renameWorkplace(size_t index) {
     if (index >= workspaces.size())
@@ -388,6 +466,7 @@ private:
       workspaces[workspaceSelected].setName(wpName);
       updateWorkplaceView();
       isInputState = false;
+      StatusLineMode = "NORMAL";
       saveData();
     };
     newInput = Input(&wpName, option);
@@ -427,6 +506,7 @@ private:
 
       updateTasksView(workspaceSelected, maintaskSelected);
       isInputState = false;
+      StatusLineMode = "NORMAL";
       saveData();
     };
 
@@ -434,7 +514,7 @@ private:
 
     tasksWindow->DetachAllChildren();
 
-    std::vector<todoCore::TodoTask> workspaceTasks =
+    std::vector<todoCore::TodoTask> &workspaceTasks =
         workspaces[workspaceIndex].tasks; // WARNING: maybe not
 
     size_t size = workspaceTasks.size();
@@ -454,6 +534,7 @@ private:
   // adds a task to the taskWIndow
   void addToTaskWindow(todoCore::TodoTask &task) {
     ftxui::MenuEntryOption entry_option;
+    task.updateStatus();
     entry_option.transform = todoTransformer.StyleTask(task);
     tasksWindow->Add(ftxui::MenuEntry(task.desc, entry_option));
   }
@@ -474,9 +555,10 @@ public:
   todoUi() {
     std::cout << "Shit Happend\n";
     // test for the container
-    auto comp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
+    auto Maincomp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
     /* loadTasks(); */
     /* defaultWorkspaceOption.transform = defaultWorkspaceStyle; */
+    auto comp = ftxui::Container::Vertical({Maincomp, statusLine});
     loadData();
     updateAllView(workspaceSelected, maintaskSelected);
     Add(comp);

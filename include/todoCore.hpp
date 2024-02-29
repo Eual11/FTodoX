@@ -1,8 +1,13 @@
 #ifndef _TODO_CORE_HPP
 #define _TODO_CORE_HPP
+#include <chrono>
+#include <corecrt.h>
+#include <ctime>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
@@ -13,17 +18,54 @@
 #include <yaml-cpp/yaml.h>
 
 const int WORKPALCE_PROPERTY_COUNT = 4;
-const int TASK_PROPERTY_COUNT = 3;
+const int TASK_PROPERTY_COUNT = 5;
 // the core for the todo list contains the objects of Workpalce
 // and TodoTask
 namespace todoCore {
 enum class TaskStatus { STARTED, COMPLETED, OVERDUE };
 struct TodoTask {
-  TodoTask() = default;
-  TodoTask(int id, std::string desc, TaskStatus status = TaskStatus::STARTED) {
+  TodoTask() {
+    this->id = 0;
+    this->desc = "";
+    this->status = TaskStatus::STARTED;
+    this->urgency = 1;
+    this->dueTime = std::numeric_limits<time_t>::max();
+  };
+
+  TodoTask(int id, std::string desc, TaskStatus status = TaskStatus::STARTED,
+           std::time_t dueTime = std::numeric_limits<time_t>::max(),
+           int urgency = 1) {
     this->id = id;
     this->desc = desc;
     this->status = status; //, struct stat *const Stat)
+
+    this->dueTime = dueTime;
+    this->urgency = urgency;
+  }
+
+  TodoTask(const TodoTask &tk) {
+    this->id = tk.id;
+    this->desc = tk.desc;
+    this->urgency = tk.urgency;
+    this->dueTime = tk.dueTime;
+    this->status = tk.status;
+  }
+  TodoTask(TodoTask &&tk) noexcept {
+    this->id = tk.id;
+    this->desc = tk.desc;
+    this->urgency = tk.urgency;
+    this->dueTime = tk.dueTime;
+    this->status = tk.status;
+  }
+  TodoTask &operator=(const TodoTask &tk) {
+    if (this != &tk) {
+      this->id = tk.id;
+      this->desc = tk.desc;
+      this->urgency = tk.urgency;
+      this->dueTime = tk.dueTime;
+      this->status = tk.status;
+    }
+    return *this;
   }
   ~TodoTask() { desc.clear(); }
 
@@ -35,14 +77,71 @@ struct TodoTask {
     status = (status == TaskStatus::COMPLETED || status == TaskStatus::OVERDUE)
                  ? TaskStatus::STARTED
                  : TaskStatus::COMPLETED;
+    dueTime = std::numeric_limits<time_t>::max();
   }
   int id;
   std::string desc;
   TaskStatus status;
+  std::time_t dueTime;
+  int urgency;
   static bool defaultSort(const todoCore::TodoTask &a,
                           const todoCore::TodoTask &b) {
     return b.status != todoCore::TaskStatus::STARTED &&
            a.status != todoCore::TaskStatus::COMPLETED;
+  }
+
+  std::string getDeadline() {
+    if (this->dueTime >= std::numeric_limits<time_t>::max())
+      return "";
+    std::tm *cal = localtime(&this->dueTime);
+
+    char buffer[80];
+    buffer[79] = '\0';
+    buffer[0] = '\0';
+    int size = std::strftime(buffer, 79, "%b %d %y", cal);
+    if (size > 0) {
+      std::string dead_line(buffer);
+      return dead_line;
+    }
+    return "";
+  }
+  inline void increaseUrgency() {
+    this->urgency += 1;
+    if (this->urgency > 3)
+      this->urgency = 3;
+  }
+  inline void decreaseUrgency() {
+    this->urgency -= 1;
+    if (this->urgency < 1)
+      this->urgency = 1;
+  }
+  void parseDueDate(std::string date) {
+
+    std::stringstream ss(date);
+    std::tm cal = {};
+
+    ss >> std::get_time(&cal, "%b %d %y");
+
+    time_t new_time = std::mktime(&cal);
+
+    if (new_time > 0)
+      this->dueTime = new_time;
+    bool overdue = updateStatus();
+    if (!overdue)
+      this->status = TaskStatus::STARTED;
+  }
+  bool updateStatus(void) {
+    if (status == TaskStatus::COMPLETED)
+      return false;
+    auto currentTime = std::chrono::system_clock::now();
+
+    if (std::chrono::system_clock::to_time_t(currentTime) >= this->dueTime) {
+      this->status = TaskStatus::OVERDUE;
+      return true;
+    } else {
+      this->status = TaskStatus::STARTED;
+      return false;
+    }
   }
   friend std::ostream &operator<<(std::ostream &out, const TodoTask &tk) {
 
@@ -64,7 +163,8 @@ struct TodoTask {
     }
     out << "{"
         << "id: " << tk.id << ", desc: " << tk.desc << ", status: " << status
-        << " }" << std::endl;
+        << "urgency " << tk.urgency << " due: " << tk.dueTime << " }"
+        << std::endl;
     return out;
   }
 
@@ -98,19 +198,52 @@ struct TodoTask {
     out << YAML::Key << "Status";
     out << YAML::Value;
     out << status;
+    out << YAML::Key << "DueTime";
+    out << YAML::Value;
+    out << tk.dueTime;
+    out << YAML::Key << "Urgency";
+    out << YAML::Value;
+    out << tk.urgency;
+
     out << YAML::EndMap;
     return out;
   }
 };
 
 struct Workspace {
-  Workspace() = default;
+  Workspace() {
+    id = 0;
+    name = "";
+    nest = false;
+    tasks = {};
+  }
   Workspace(int id, std::string workspaceName, bool isNested = false) {
     this->id = id;
 
     name = workspaceName;
     this->nest = isNested;
     tasks = {};
+  }
+  Workspace(const Workspace &wp) {
+    this->id = wp.id;
+    this->name = wp.name;
+    this->nest = wp.nest;
+    this->tasks = wp.tasks;
+  }
+  Workspace(Workspace &&wp) noexcept {
+    this->id = wp.id;
+    this->name = wp.name;
+    this->nest = wp.nest;
+    this->tasks = std::move(wp.tasks);
+  }
+  Workspace &operator=(const Workspace &wp) {
+    if (this != &wp) {
+      this->id = wp.id;
+      this->name = wp.name;
+      this->nest = wp.nest;
+      this->tasks = wp.tasks;
+    }
+    return *this;
   }
   ~Workspace() {
     name.clear();
@@ -209,6 +342,8 @@ template <> struct convert<todoCore::TodoTask> {
     node["ID"] = task.id;
     node["Description"] = task.desc;
     node["Status"] = status;
+    node["DueTime"] = task.dueTime;
+    node["Urgency"] = task.urgency;
 
     return node;
   }
@@ -223,6 +358,14 @@ template <> struct convert<todoCore::TodoTask> {
     task.id = node["ID"].as<int>();
     task.desc = node["Description"].as<std::string>();
     std::string status = node["Status"].as<std::string>();
+    if (!node["DueTime"]) {
+      task.dueTime = std::numeric_limits<time_t>::max();
+    } else
+      task.dueTime = node["DueTime"].as<time_t>();
+    if (!node["Urgency"])
+      task.urgency = 1;
+    else
+      task.urgency = node["Urgency"].as<int>();
 
     if (status == "STARTED")
       task.status = todoCore::TaskStatus::STARTED;

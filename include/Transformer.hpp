@@ -42,6 +42,12 @@ public:
       node["pending_task_background"] = pendingTaskBackground;
       node["completed_task_color"] = completedTaskColor;
       node["completed_task_background"] = completedTaskBackground;
+      node["overdue_task_color"] = overdueTaskColor;
+      node["overdue_task_background"] = overdueTaskBackground;
+      node["urgency_low_color"] = urgencyLowColor;
+
+      node["urgency_medium_color"] = urgencyMediumColor;
+      node["urgency_high_color"] = urgencyHighColor;
 
       node["workspace_pointer"] = workspacePointer;
       node["task_pointer"] = taskPointer;
@@ -49,7 +55,11 @@ public:
       node["empty_workspace_icon"] = emptyWorkspaceIcon;
       node["pending_task_icon"] = pendingTaskIcon;
       node["completed_task_icon"] = completedTaskIcon;
-
+      node["overdue_task_icon"] = overdueTaskIcon;
+      node["urgency_low_icon"] = urgencyLowIcon;
+      node["urgency_medium_icon"] = urgencyMediumIcon;
+      node["urgency_high_icon"] = urgencyHighIcon;
+      node["due_time_icon"] = dueTimeIcon;
       std::ofstream out("default.yaml");
       if (out.fail()) {
         std::cerr << "couldn't save default theme\n";
@@ -77,6 +87,13 @@ public:
     completedTaskColor = LoadedTheme["completed_task_color"].as<std::string>();
     completedTaskBackground =
         LoadedTheme["completed_task_background"].as<std::string>();
+    overdueTaskColor = LoadedTheme["overdue_task_color"].as<std::string>();
+    overdueTaskBackground =
+        LoadedTheme["overdue_task_background"].as<std::string>();
+
+    urgencyLowColor = LoadedTheme["urgency_low_color"].as<std::string>();
+    urgencyMediumColor = LoadedTheme["urgency_medium_color"].as<std::string>();
+    urgencyHighColor = LoadedTheme["urgency_high_color"].as<std::string>();
 
     workspacePointer = LoadedTheme["workspace_pointer"].as<std::string>();
     taskPointer = LoadedTheme["task_pointer"].as<std::string>();
@@ -85,6 +102,12 @@ public:
         LoadedTheme["non_empty_workspace_icon"].as<std::string>();
     pendingTaskIcon = LoadedTheme["pending_task_icon"].as<std::string>();
     completedTaskIcon = LoadedTheme["completed_task_icon"].as<std::string>();
+    overdueTaskIcon = LoadedTheme["overdue_task_icon"].as<std::string>();
+    urgencyLowIcon = LoadedTheme["urgency_low_icon"].as<std::string>();
+    urgencyMediumIcon = LoadedTheme["urgency_medium_icon"].as<std::string>();
+    urgencyHighIcon = LoadedTheme["urgency_high_icon"].as<std::string>();
+
+    dueTimeIcon = LoadedTheme["due_time_icon"].as<std::string>();
     return true;
   }
 
@@ -122,6 +145,11 @@ private:
   std::string pendingTaskBackground = "#373e4f";
   std::string completedTaskColor = "#98c379";
   std::string completedTaskBackground = "#373e4f";
+  std::string overdueTaskColor = "#bf4a58";
+  std::string overdueTaskBackground = "#373e4f";
+  std::string urgencyLowColor = "#54e7ac";
+  std::string urgencyMediumColor = "#d3e847";
+  std::string urgencyHighColor = "#e75462";
 
   /* std::string todobgColor = "#21283b"; // default bavground color for the app
    */
@@ -132,7 +160,16 @@ private:
   std::string emptyWorkspaceIcon = "";
   std::string pendingTaskIcon = "";
   std::string completedTaskIcon = "";
+  std::string overdueTaskIcon = "󰅗";
+
+  std::string urgencyLowIcon = "󰿷";
+  std::string urgencyMediumIcon = "";
+  std::string urgencyHighIcon = "󰚌";
+  std::string dueTimeIcon = "";
   std::string workspaceIcon;
+  std::string urgencyIcon;
+  ftxui::Decorator urgencyStyle = ftxui::color(hexToRGB(urgencyLowColor));
+
   ftxui::Element selectedWorkspaceStyle(const ftxui::EntryState &state) {
 
     std::string label = workspacePointer + " " + workspaceIcon + " ";
@@ -182,6 +219,33 @@ private:
 
     return entry;
   }
+
+  void setUrgencyStyle(todoCore::TodoTask &task) {
+    switch (task.urgency) {
+    case 1: {
+      this->urgencyIcon = urgencyLowIcon;
+
+      this->urgencyStyle = ftxui::color(hexToRGB(urgencyLowColor));
+
+      break;
+    }
+    case 2: {
+      urgencyIcon = urgencyMediumIcon;
+
+      urgencyStyle = ftxui::color(hexToRGB(urgencyMediumColor));
+
+      break;
+    }
+    case 3: {
+      urgencyIcon = urgencyHighIcon;
+
+      urgencyStyle = ftxui::color(hexToRGB(urgencyHighColor));
+
+      break;
+    }
+    }
+  }
+
   ftxui::Element defaultCompletedTaskStyle(const ftxui::EntryState &state) {
     /* ftxui::Element entry = ftxui::text(std::move(label)); */
     std::string icon;
@@ -199,6 +263,28 @@ private:
     }
     if (state.focused) {
       entry |= ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+      ;
+    }
+
+    return entry;
+  }
+  ftxui::Element defaultOverDueTaskStyle(const ftxui::EntryState &state) {
+    /* ftxui::Element entry = ftxui::text(std::move(label)); */
+    std::string icon;
+    if (state.focused)
+      icon = taskPointer + " " + overdueTaskIcon + " ";
+    else
+      icon = "  " + overdueTaskIcon + " ";
+    ftxui::Element entry =
+        ftxui::hbox({ftxui::text(icon), ftxui::text(state.label)}) |
+        ftxui::color(hexToRGB(overdueTaskColor));
+    if (state.active) {
+      entry |= ftxui::bold | ftxui::color(hexToRGB(overdueTaskColor));
+      ;
+      ;
+    }
+    if (state.focused) {
+      entry |= ftxui::bold | ftxui::bgcolor(hexToRGB(overdueTaskBackground));
       ;
     }
 
@@ -272,21 +358,74 @@ public:
     };
   }
   std::function<ftxui::Element(const ftxui::EntryState &)>
-  StyleTask(todoCore::TodoTask task) {
+  StyleTask(todoCore::TodoTask &task) {
     switch (task.status) {
     case todoCore::TaskStatus::STARTED: {
 
-      return [this](const ftxui::EntryState &state) {
-        return defaultTaskStyle(state);
+      return [&](const ftxui::EntryState &state) {
+        setUrgencyStyle(task);
+        std::string dueString = task.getDeadline();
+        ftxui::Element due = ftxui::text(dueTimeIcon + " " + dueString) |
+                             ftxui::color(hexToRGB(pendingTaskColor)) |
+                             ftxui::color(hexToRGB(pendingTaskBackground));
+        if (!dueString.size())
+          due = ftxui::text("");
+        auto entry =
+            ftxui::hbox({defaultTaskStyle(state), ftxui::filler(), due,
+                         ftxui::emptyElement() |
+                             ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 10),
+                         ftxui::text(this->urgencyIcon) | this->urgencyStyle});
+        if (state.focused) {
+          entry |=
+              ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+        }
+        return entry;
       };
       break;
     }
     case todoCore::TaskStatus::COMPLETED: {
-      return [this](const ftxui::EntryState &state) {
-        return defaultCompletedTaskStyle(state);
+      return [&](const ftxui::EntryState &state) {
+        setUrgencyStyle(task);
+        std::string dueString = task.getDeadline();
+        ftxui::Element due = ftxui::text(dueTimeIcon + " " + dueString) |
+                             ftxui::color(hexToRGB(completedTaskColor)) |
+                             ftxui::color(hexToRGB(completedTaskBackground));
+        ;
+        if (!dueString.size())
+          due = ftxui::text("");
+        auto entry =
+            ftxui::hbox({defaultCompletedTaskStyle(state), ftxui::filler(), due,
+                         ftxui::emptyElement() |
+                             ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 10),
+                         ftxui::text(urgencyIcon) | urgencyStyle});
+        if (state.focused) {
+          entry |=
+              ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+        }
+        return entry;
       };
     }
     case todoCore::TaskStatus::OVERDUE: {
+      return [&](const ftxui::EntryState &state) {
+        setUrgencyStyle(task);
+        std::string dueString = task.getDeadline();
+        ftxui::Element due = ftxui::text(dueTimeIcon + " " + dueString) |
+                             ftxui::color(hexToRGB(overdueTaskColor)) |
+                             ftxui::color(hexToRGB(overdueTaskBackground));
+
+        if (!dueString.size())
+          due = ftxui::text("");
+        auto entry =
+            ftxui::hbox({defaultOverDueTaskStyle(state), ftxui::filler(), due,
+                         ftxui::emptyElement() |
+                             ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 10),
+                         ftxui::text(urgencyIcon) | urgencyStyle});
+        if (state.focused) {
+          entry |=
+              ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+        }
+        return entry;
+      };
       break;
     }
     };

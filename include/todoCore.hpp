@@ -84,12 +84,23 @@ struct TodoTask {
   TaskStatus status;
   std::time_t dueTime;
   int urgency;
-  static bool defaultSort(const todoCore::TodoTask &a,
-                          const todoCore::TodoTask &b) {
+  static bool sortByStatus(const todoCore::TodoTask &a,
+                           const todoCore::TodoTask &b) {
     return b.status != todoCore::TaskStatus::STARTED &&
            a.status != todoCore::TaskStatus::COMPLETED;
   }
-
+  static bool sortByDescAsc(const todoCore::TodoTask &a,
+                            const todoCore::TodoTask &b) {
+    return a.desc < b.desc;
+  }
+  static bool sortByDateAsc(const todoCore::TodoTask &a,
+                            const todoCore::TodoTask &b) {
+    return a.dueTime < b.dueTime;
+  }
+  static bool sortByUrgencyDesc(const todoCore::TodoTask &a,
+                                const todoCore::TodoTask &b) {
+    return a.urgency > b.urgency;
+  }
   std::string getDeadline() {
     if (this->dueTime >= std::numeric_limits<time_t>::max())
       return "";
@@ -117,13 +128,22 @@ struct TodoTask {
   }
   void parseDueDate(std::string date) {
 
+    const char *formats[] = {"%b %d %y", "%m/%d/%y", NULL};
+    time_t new_time = -1;
+    int i = 0;
     std::stringstream ss(date);
     std::tm cal = {};
 
-    ss >> std::get_time(&cal, "%b %d %y");
+    while (new_time < 0 && formats[i]) {
+      ss >> std::get_time(&cal, formats[i]);
 
-    time_t new_time = std::mktime(&cal);
-
+      new_time = std::mktime(&cal);
+      std::cerr << date << " " << new_time << " format: " << formats[i]
+                << std::endl;
+      i++;
+      ss.clear();
+      ss.seekg(0);
+    }
     if (new_time > 0)
       this->dueTime = new_time;
     bool overdue = updateStatus();

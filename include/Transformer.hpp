@@ -2,19 +2,28 @@
 #define _TRANSFORMER_HPP_
 #include "Utils.hpp"
 #include "todoCore.hpp"
+#include <algorithm>
+#include <chrono>
 #include <exception>
 #include <fstream>
 #include <ftxui/component/component.hpp>
+#include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <yaml-cpp/exceptions.h>
 #include <yaml-cpp/node/node.h>
 #include <yaml-cpp/node/parse.h>
 #include <yaml-cpp/yaml.h>
+namespace TaskCount {
+static int completed;
+static int pending;
+static int overdue;
+}; // namespace TaskCount
 class Transformer {
 
 public:
@@ -194,6 +203,78 @@ private:
     return entry;
   }
 
+  ftxui::Element EmptyTaskStyle(const ftxui::EntryState &state) {
+
+    std::ifstream ascii_art("./ascii.txt");
+
+    if (ascii_art.fail()) {
+      return ftxui::text("fail to load ascii");
+    }
+    std::string s;
+    std::vector<ftxui::Element> entryVec = {};
+    while (std::getline(ascii_art, s)) {
+      entryVec.push_back(ftxui::text(s));
+    }
+    entryVec.insert(entryVec.begin(),
+                    ftxui::emptyElement() |
+                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 10));
+    entryVec.push_back(ftxui::text(""));
+
+    entryVec.push_back(
+        ftxui::text("It's Empty, Add More Tasks and Acheive them ^_^"));
+    return ftxui::vbox(entryVec) | ftxui::flex_grow | ftxui::center |
+           ftxui::color(hexToRGB("#41a7fc"));
+  }
+  ftxui::Element DashboardStyle(const ftxui::EntryState &state) {
+
+    std::ifstream ascii_art("./dashboardascii.txt");
+
+    if (ascii_art.fail()) {
+      return ftxui::text("fail to load ascii");
+    }
+    std::string s;
+    std::vector<ftxui::Element> entryVec = {};
+    while (std::getline(ascii_art, s)) {
+      entryVec.push_back(ftxui::text(s));
+    }
+    entryVec.insert(entryVec.begin(),
+                    ftxui::emptyElement() |
+                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 7));
+    entryVec.push_back(ftxui::text(""));
+    entryVec.push_back(ftxui::separator());
+
+    auto now =
+        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm *cal = std::localtime(&now);
+
+    std::string date;
+    std::ostringstream oss;
+    oss << std::put_time(cal, "%A, %m %b");
+    date = oss.str();
+    entryVec.push_back(ftxui::text(date) |
+                       ftxui::color(hexToRGB(pendingTaskColor)) |
+                       ftxui::center);
+    entryVec.push_back(ftxui::text(""));
+    entryVec.push_back(
+        ftxui::hbox({ftxui::text(" Tasks Overdue: ") |
+                         ftxui::color(hexToRGB(overdueTaskColor)),
+                     ftxui::filler(),
+                     ftxui::text(std::to_string(TaskCount::overdue))}) |
+        ftxui::color(hexToRGB(overdueTaskColor)));
+    entryVec.push_back(
+        ftxui::hbox({ftxui::text("󱅄 Tasks Pending: ") |
+                         ftxui::color(hexToRGB(pendingTaskColor)),
+                     ftxui::filler(),
+                     ftxui::text(std::to_string(TaskCount::pending))}) |
+        ftxui::color(hexToRGB(pendingTaskColor)));
+    entryVec.push_back(
+        ftxui::hbox({ftxui::text(" Tasks Done: "), ftxui::filler(),
+                     ftxui::text(std::to_string(TaskCount::completed))}) |
+        ftxui::color(hexToRGB(completedTaskColor)));
+
+    return ftxui::vbox(entryVec) | ftxui::flex_grow | ftxui::center |
+           ftxui::color(hexToRGB("#41a7fc"));
+  }
   ftxui::Element defaultTaskStyle(const ftxui::EntryState &state) {
     /* ftxui::Element entry = ftxui::text(std::move(label)); Documents and
      * Settings*/
@@ -321,6 +402,21 @@ private:
                            ftxui::color(hexToRGB(inputTextColor));
     return entry;
   }
+  ftxui::Element defaultStatusLineInputStyle(ftxui::InputState &state) {
+    std::string icon;
+    if (state.is_placeholder)
+      state.element |= ftxui::dim;
+    if (state.focused)
+      icon = workspacePointer + " " + dueTimeIcon + " ";
+    else
+      icon = "  " + dueTimeIcon;
+    ftxui::Element entry =
+        ftxui::hbox(
+            {ftxui::text(icon), state.element | ftxui::focusCursorUnderline}) |
+        ftxui::bgcolor(hexToRGB(selectedWorkspaceBGcolor)) |
+        ftxui::color(hexToRGB(inputTextColor));
+    return entry;
+  }
 
 public:
   std::string todobgColor = "#21283b";
@@ -437,6 +533,85 @@ public:
     return [this](const ftxui::InputState &state) {
       return defaultTaskInputStyle(state);
     };
+  }
+  std::function<ftxui::Element(ftxui::InputState)> StyleStatusLineInput() {
+    return [this](ftxui::InputState state) {
+      return defaultStatusLineInputStyle(state);
+    };
+  }
+
+  std::function<ftxui::Element(const ftxui::EntryState &)> StyleEmptyTask() {
+    return [this](const ftxui::EntryState &state) {
+      return EmptyTaskStyle(state);
+    };
+  }
+  std::function<ftxui::Element(const ftxui::EntryState &)>
+  StyleDashboard(const std::vector<todoCore::Workspace> &wps) {
+
+    TaskCount::completed = 0;
+    TaskCount::pending = 0;
+    TaskCount::overdue = 0;
+    for (auto &wp : wps) {
+      TaskCount::completed += std::count_if(
+          wp.tasks.begin(), wp.tasks.end(), [](const todoCore::TodoTask &tk) {
+            return tk.status == todoCore::TaskStatus::COMPLETED;
+          });
+      TaskCount::overdue += std::count_if(
+          wp.tasks.begin(), wp.tasks.end(), [](const todoCore::TodoTask &tk) {
+            return tk.status == todoCore::TaskStatus::OVERDUE;
+          });
+      TaskCount::pending += std::count_if(
+          wp.tasks.begin(), wp.tasks.end(), [](const todoCore::TodoTask &tk) {
+            return tk.status == todoCore::TaskStatus::STARTED;
+          });
+    }
+
+    return [this](const ftxui::EntryState &state) {
+      return DashboardStyle(state);
+    };
+  }
+
+  ftxui::Element StatusLineRender(ftxui::Component statusLine,
+                                  std::string statusLineMode) {
+#ifdef _WIN32
+
+    const char *username = getenv("USERNAME");
+
+#elif __APPLE__
+    const char *username = getenv("LOGNAME");
+
+#elif __linux__
+    const char *username = getenv("USER")
+
+#else
+    const char *username = nullptr;
+#endif
+    std::string user;
+    if (username)
+      user = username;
+
+    using SC = std::chrono::system_clock;
+
+    auto now = SC::to_time_t(SC::now());
+
+    std::tm *cal = std::localtime(&now);
+    std::string hours = std::to_string(cal->tm_hour);
+    std::string mins = cal->tm_min <= 9 ? "0" + std::to_string(cal->tm_min)
+                                        : std::to_string(cal->tm_min);
+
+    std::string current_time = "  " + hours + ":" + mins + "  ";
+    auto statusLineView = ftxui::hbox(
+        {ftxui::text("  " + statusLineMode) |
+             ftxui::color(hexToRGB(statusLineColor)) |
+             ftxui::bgcolor(hexToRGB(statusLineBGcolor)),
+         statusLine->Render(), ftxui::filler(),
+         ftxui::text(user + "   ") |
+             ftxui::color(hexToRGB(statusLineColor)) |
+             ftxui::bgcolor(hexToRGB(statusLineBGcolor)),
+         ftxui::text(current_time) | ftxui::color(hexToRGB(statusLineColor)) |
+             ftxui::bgcolor(hexToRGB(statusLineBGcolor))});
+
+    return statusLineView;
   }
 };
 #endif

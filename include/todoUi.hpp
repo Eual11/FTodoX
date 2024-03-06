@@ -5,6 +5,7 @@
 #include "Utils.hpp"
 #include "transforms.hpp"
 #include <chrono>
+#include <ctime>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -20,17 +21,7 @@
 #include <yaml-cpp/node/parse.h>
 
 //  TODO: Sorting todos
-//   TODO: SEVERAL BUG FIXES, the save and load are path dependant
-//    TODO: an ID for each task
-//     BUG: the status line gets squashed
-//      TODO: defeault input option
-//       the UI is one big component that holds two pain components namely
-//      TODO: delete opration is vage
-//       workspacePanel: is a vertical container with a given selector
-//       tasksWindow- is a veretical container that holds the tasks
 
-//     implemented tasks: inseertion, renaming /editing of both tasks and
-//     workplaces
 class todoUi : public ftxui::ComponentBase {
 private:
   int workspaceSelected = 0;
@@ -44,7 +35,11 @@ private:
   bool isInputState = false;
   ftxui::Component newInput;
   Transformer todoTransformer;
-
+  bool showDashBoard = true;
+  std::vector<std::string> sortOptions = {"description", "date", "urgency",
+                                          "status"};
+  std::function<bool(const todoCore::TodoTask &, const todoCore::TodoTask &)>
+      sortFunc;
   ftxui::MenuEntryOption defaultTasksOption;
   ftxui::MenuEntryOption defaultWorkspaceOption;
   ftxui::Component workspacePanel =
@@ -64,16 +59,19 @@ private:
     }
     if (!isInputState) {
       if (event == ftxui::Event::Return) {
+        showDashBoard = false;
         if (workspacePanel->Focused()) {
           updateAllView(workspaceSelected, maintaskSelected);
           if (tasksWindow->ChildCount() > 0)
             tasksWindow->ChildAt(0)->TakeFocus();
           StatusLineMode = "NORMAL";
+          std::cerr << "I CAN'T TAKE THIS PLACE\n";
+          StatusLineMode = "NORMAL";
+          return true;
         }
         // WARNING: MAYEB NOT?
-        StatusLineMode = "NORMAL";
-        return true;
       }
+
       if (event == ftxui::Event::Character('a')) {
         // insertion operatipn
         //
@@ -81,7 +79,7 @@ private:
         if (workspacePanel->Focused() || workspaces.size() == 0) {
           // insertion to workplaces
           createWorkspace(workspaceSelected + 1);
-        } else if (tasksWindow->Focused()) {
+        } else if (tasksWindow->Focused() && !showDashBoard) {
           // insertion on tasks
           //
           //
@@ -96,7 +94,7 @@ private:
       if (event == ftxui::Event::Character('c')) {
         // complete a task
         // horrible
-        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+        if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             workspaces[workspaceSelected].tasks.size() > 0) {
           auto &wp = workspaces[workspaceSelected].tasks[maintaskSelected];
           wp.toggleCompleted();
@@ -108,13 +106,13 @@ private:
 
       if (event == ftxui::Event::Character('d')) {
 
-        if (tasksWindow->Focused() &&
+        if (tasksWindow->Focused() && !showDashBoard &&
             workspaces[workspaceSelected].tasks.size() > 0) {
           ftxui::InputOption option;
           option.multiline = false;
           option.placeholder = "Date and Time ";
           todoCore::Workspace dummy;
-          option.transform = todoTransformer.StyleWorkspaceInput(dummy);
+          option.transform = todoTransformer.StyleStatusLineInput();
 
           option.on_enter = [&] {
             isInputState = false;
@@ -153,7 +151,7 @@ private:
             if (workspaces.size() > 0)
               tasksWindow->TakeFocus();
           }
-        } else if (tasksWindow->Focused()) {
+        } else if (tasksWindow->Focused() && !showDashBoard) {
           if (workspaces.size() > 0) {
             auto &wpTasks = workspaces[workspaceSelected].tasks;
             if (wpTasks.size() > 0) {
@@ -176,7 +174,7 @@ private:
           //
           StatusLineMode = "INSERT";
           renameWorkplace(workspaceSelected);
-        } else if (tasksWindow->Focused()) {
+        } else if (tasksWindow->Focused() && !showDashBoard) {
           StatusLineMode = "INSERT";
           editTask(workspaceSelected, maintaskSelected);
         }
@@ -185,7 +183,7 @@ private:
         return true;
       }
       if (event == ftxui::Event::Character('+')) {
-        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+        if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
           auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
@@ -196,7 +194,7 @@ private:
         }
       }
       if (event == ftxui::Event::Character('-')) {
-        if (tasksWindow->Focused() && workspaces.size() > 0 &&
+        if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
           auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
@@ -206,6 +204,60 @@ private:
           updateAllView(workspaceSelected, maintaskSelected);
           saveData();
         }
+      }
+
+      if (event == ftxui::Event::Escape) {
+        showDashBoard = true;
+        displayDashBoard();
+        workspacePanel->TakeFocus();
+      }
+      if (event == ftxui::Event::Character('s')) {
+        // change the sorting order function to comething else
+        //
+        //
+        if (tasksWindow->Focused()) {
+          // sorting tasks
+
+          tasksWindow->DetachAllChildren();
+          maintaskSelected = 0; // reseting task selected
+          ftxui::MenuOption Menuoption;
+
+          Menuoption.on_enter = [this] {
+            switch (maintaskSelected) {
+            case 0: {
+              sortFunc = todoCore::TodoTask::sortByDescAsc;
+              // description
+              break;
+            }
+            case 1: {
+              // date
+
+              sortFunc = todoCore::TodoTask::sortByDateAsc;
+              break;
+            }
+            case 2: {
+              // urgency
+              sortFunc = todoCore::TodoTask::sortByUrgencyDesc;
+              break;
+            }
+            default: {
+              sortFunc = todoCore::TodoTask::sortByStatus;
+            }
+            }
+            updateTasksView(workspaceSelected, 0);
+          };
+          auto sortMenu =
+              ftxui::Menu(&sortOptions, &maintaskSelected, Menuoption);
+
+          tasksWindow->Add(sortMenu);
+
+        }
+
+        else if (workspacePanel->Focused()) {
+          // TODO: sort workspaces
+        }
+        StatusLineMode = "SORT";
+        return true;
       }
     }
 
@@ -336,11 +388,8 @@ private:
              ftxui::frame | todoBorderStyle,
 
          taskView | vscroll_indicator | flex | yframe | todoBorderStyle});
-    // TODO: styling for statys line
-    auto statusLineView = ftxui::hbox(
-        {ftxui::text(StatusLineMode) | statusLineColor | statusLineBGcolor,
-         statusLine->Render(), ftxui::filler()});
-
+    auto statusLineView =
+        todoTransformer.StatusLineRender(statusLine, StatusLineMode);
     return ftxui::vbox({mainView | ftxui::flex,
                         statusLineView |
                             ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1) |
@@ -396,6 +445,16 @@ private:
     if (index >= 0 && index < tasksWindow->ChildCount())
       tasksWindow->SetActiveChild(tasksWindow->ChildAt(index));
   }
+  void displayDashBoard() {
+
+    tasksWindow->DetachAllChildren();
+
+    ftxui::MenuEntryOption option;
+    option.transform = todoTransformer.StyleDashboard(workspaces);
+    tasksWindow->Add(ftxui::MenuEntry("Here a Dashboard", option));
+
+    workspacePanel->TakeFocus();
+  }
   void updateWorkplaceView(int index = -1) {
     index = index < 0 ? workspaceSelected : index;
     // cannot be loaded unless there are loaded tasks
@@ -426,18 +485,26 @@ private:
   }
   void updateTasksView(int workspaceIndex, int taskIndex) {
     // uodate the tasks based on the selected workplace
+    //
+
+    if (showDashBoard) {
+      displayDashBoard();
+      return;
+    }
     tasksWindow->DetachAllChildren();
     if (workspaceIndex < (int)workspaces.size()) {
-      sortTasks(workspaces[workspaceIndex].tasks,
-                todoCore::TodoTask::defaultSort);
+      sortTasks(workspaces[workspaceIndex].tasks, sortFunc);
 
       for (auto &task : workspaces[workspaceIndex].tasks) {
         task.updateStatus();
         addToTaskWindow(task);
       }
     }
-    if (tasksWindow->ChildCount() == 0)
+    if (tasksWindow->ChildCount() == 0) {
+
+      defaultTasksOption.transform = todoTransformer.StyleEmptyTask();
       tasksWindow->Add(ftxui::MenuEntry("Add New Task", defaultTasksOption));
+    }
     if (taskIndex >= 0)
       tasksWindow->SetActiveChild(
           tasksWindow->ChildAt(taskIndex)); // WARNING: why -1?
@@ -555,10 +622,12 @@ public:
   todoUi() {
     std::cout << "Shit Happend\n";
     // test for the container
+    sortFunc = todoCore::TodoTask::sortByStatus;
     auto Maincomp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
     /* loadTasks(); */
     /* defaultWorkspaceOption.transform = defaultWorkspaceStyle; */
     auto comp = ftxui::Container::Vertical({Maincomp, statusLine});
+
     loadData();
     updateAllView(workspaceSelected, maintaskSelected);
     Add(comp);

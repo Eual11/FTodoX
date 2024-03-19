@@ -5,11 +5,11 @@
 #include <iostream>
 int main(void) {
 
-  auto rend = ftxui::Make<todoUi>();
+  auto todoui = ftxui::Make<todoUi>();
 
   auto scr = ftxui::ScreenInteractive::Fullscreen();
 
-  scr.Loop(rend);
+  scr.Loop(todoui);
   std::cout << "Hello Cruel World";
   return 0;
 }

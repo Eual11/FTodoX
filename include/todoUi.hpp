@@ -35,6 +35,7 @@ private:
   bool isInputState = false;
   ftxui::Component newInput;
   Transformer todoTransformer;
+  std::function<void()> quit;
   bool showDashBoard = true;
   std::vector<std::string> sortOptions = {"description", "date", "urgency",
                                           "status"};
@@ -258,6 +259,12 @@ private:
         }
         StatusLineMode = "SORT";
         return true;
+      }
+      if (event == ftxui::Event::Character('q')) {
+        // quit
+        //
+        saveData();
+        quit();
       }
     }
 
@@ -632,6 +639,7 @@ public:
     updateAllView(workspaceSelected, maintaskSelected);
     Add(comp);
   }
+  void setExitFunction(std::function<void()> q) { quit = std::move(q); }
 };
 
 #endif

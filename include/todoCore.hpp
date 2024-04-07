@@ -69,8 +69,10 @@ struct TodoTask {
   }
   ~TodoTask() { desc.clear(); }
 
-  inline bool operator==(const todoCore::TodoTask &tk) const {
-    return id == tk.id;
+  inline bool operator==(const todoCore::TodoTask &a) {
+    // horrible code
+    return this->id == a.id && this->desc == a.desc &&
+           this->dueTime == a.dueTime && this->urgency == a.urgency;
   }
   void setCompleted() { status = TaskStatus::COMPLETED; }
   inline void toggleCompleted() {

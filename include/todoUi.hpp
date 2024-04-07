@@ -4,17 +4,21 @@
 #include "Transformer.hpp"
 #include "Utils.hpp"
 #include "transforms.hpp"
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
+#include <ftxui/component/task.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/color.hpp>
 #include <functional>
 #include <iostream>
+#include <iterator>
+#include <regex>
 #include <string>
 #include <vector>
 #include <yaml-cpp/emitter.h>
@@ -28,9 +32,11 @@ private:
   int maintaskSelected = 0;
 
   std::vector<todoCore::Workspace> workspaces;
+  std::vector<todoCore::TodoTask> TasksList;
   std::string wpName = "";
   std::string taskDesc = "";
   std::string date = "";
+  std::string searchQuery = "";
   std::string StatusLineMode = "NORMAL";
   bool isInputState = false;
   ftxui::Component newInput;
@@ -52,6 +58,7 @@ private:
   ftxui::Component statusLine = ftxui::Container::Horizontal({});
   bool OnEvent(ftxui::Event event) override {
     if (isInputState && !newInput->Active()) {
+      // reseting the UI if the input element is no longer active
       updateWorkplaceView();
       updateTasksView(workspaceSelected, maintaskSelected);
       updateStatusLineView(maintaskSelected);
@@ -85,7 +92,13 @@ private:
           //
           //
 
-          createTask(workspaceSelected, maintaskSelected + 1);
+          auto selectedTask =
+              std::find(workspaces[workspaceSelected].tasks.begin(),
+                        workspaces[workspaceSelected].tasks.end(),
+                        TasksList[maintaskSelected]);
+          int taskIndex = std::distance(
+              workspaces[workspaceSelected].tasks.begin(), selectedTask);
+          createTask(workspaceSelected, taskIndex + 1);
         }
         StatusLineMode = "INSERT";
 
@@ -98,7 +111,12 @@ private:
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             workspaces[workspaceSelected].tasks.size() > 0) {
           auto &wp = workspaces[workspaceSelected].tasks[maintaskSelected];
-          wp.toggleCompleted();
+          /* wp.toggleCompleted(); */
+          auto task = std::find(workspaces[workspaceSelected].tasks.begin(),
+                                workspaces[workspaceSelected].tasks.end(),
+                                TasksList[maintaskSelected]);
+          if (task != workspaces[workspaceSelected].tasks.end())
+            task->toggleCompleted();
         }
         updateAllView(workspaceSelected, maintaskSelected);
         saveData();
@@ -113,12 +131,19 @@ private:
           option.multiline = false;
           option.placeholder = "Date and Time ";
           todoCore::Workspace dummy;
-          option.transform = todoTransformer.StyleStatusLineInput();
+          option.transform = todoTransformer.StyleStatusLineInput("date");
 
           option.on_enter = [&] {
             isInputState = false;
-            workspaces[workspaceSelected].tasks[maintaskSelected].parseDueDate(
-                date);
+            /* workspaces[workspaceSelected].tasks[maintaskSelected].parseDueDate(
+             */
+            /*     date); */
+            auto task = std::find(workspaces[workspaceSelected].tasks.begin(),
+                                  workspaces[workspaceSelected].tasks.end(),
+                                  TasksList[maintaskSelected]);
+            if (task != workspaces[workspaceSelected].tasks.end())
+              task->parseDueDate(date);
+
             std::cerr << " "
                       << workspaces[workspaceSelected]
                              .tasks[maintaskSelected]
@@ -138,6 +163,28 @@ private:
 
         return true;
       }
+      if (event == ftxui::Event::Character('/')) {
+        if (tasksWindow->Focused() && !showDashBoard) {
+          ftxui::InputOption option;
+          option.multiline = false;
+          option.placeholder = "Find Tasks";
+
+          option.transform = todoTransformer.StyleStatusLineInput("search");
+
+          option.on_enter = [this] {
+            updateAllView(workspaceSelected, maintaskSelected);
+            searchQuery = "";
+            isInputState = false;
+          };
+
+          newInput = ftxui::Input(&searchQuery, option);
+          statusLine->DetachAllChildren();
+          statusLine->Add(newInput);
+          isInputState = true;
+          newInput->TakeFocus();
+        }
+        return true;
+      }
       if (event == ftxui::Event::Character('x')) {
         // delete operation
         //
@@ -155,10 +202,13 @@ private:
         } else if (tasksWindow->Focused() && !showDashBoard) {
           if (workspaces.size() > 0) {
             auto &wpTasks = workspaces[workspaceSelected].tasks;
+            auto task = std::find(wpTasks.begin(), wpTasks.end(),
+                                  TasksList[maintaskSelected]);
             if (wpTasks.size() > 0) {
               std::cerr << "wp: " << workspaceSelected
                         << "ms: " << maintaskSelected << "\n";
-              wpTasks.erase(wpTasks.begin() + maintaskSelected);
+              if (task != wpTasks.end())
+                wpTasks.erase(task);
               updateTasksView(workspaceSelected, maintaskSelected - 1);
             }
           }
@@ -177,7 +227,12 @@ private:
           renameWorkplace(workspaceSelected);
         } else if (tasksWindow->Focused() && !showDashBoard) {
           StatusLineMode = "INSERT";
-          editTask(workspaceSelected, maintaskSelected);
+          auto &wpTasks = workspaces[workspaceSelected].tasks;
+          auto task = std::find(wpTasks.begin(), wpTasks.end(),
+                                TasksList[maintaskSelected]);
+
+          editTask(workspaceSelected,
+                   (int)std::distance(wpTasks.begin(), task));
         }
 
         saveData();
@@ -187,9 +242,13 @@ private:
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
-          auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
-          task.increaseUrgency();
-          std::cerr << task << std::endl;
+          auto &wpTasks = workspaces[workspaceSelected].tasks;
+          auto task = std::find(workspaces[workspaceSelected].tasks.begin(),
+                                workspaces[workspaceSelected].tasks.end(),
+                                TasksList[maintaskSelected]);
+          if (task != wpTasks.end()) {
+            task->increaseUrgency();
+          }
           updateAllView(workspaceSelected, maintaskSelected);
           saveData();
         }
@@ -198,10 +257,13 @@ private:
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
-          auto &task = workspaces[workspaceSelected].tasks[maintaskSelected];
-
-          task.decreaseUrgency();
-          std::cerr << task << std::endl;
+          auto &wpTasks = workspaces[workspaceSelected].tasks;
+          auto task = std::find(workspaces[workspaceSelected].tasks.begin(),
+                                workspaces[workspaceSelected].tasks.end(),
+                                TasksList[maintaskSelected]);
+          if (task != wpTasks.end()) {
+            task->decreaseUrgency();
+          }
           updateAllView(workspaceSelected, maintaskSelected);
           saveData();
         }
@@ -262,6 +324,8 @@ private:
       }
       if (event == ftxui::Event::Character('q')) {
         // quit
+        //
+        //
         //
         saveData();
         quit();
@@ -346,13 +410,13 @@ private:
 
     tasksWindow->DetachAllChildren();
 
-    for (size_t i = 0; i <= wpTasks.size(); i++) {
+    for (size_t i = 0; i <= TasksList.size(); i++) {
       if (taskIndex == i) {
         tasksWindow->Add(newInput);
         continue;
       }
       if (i < wpTasks.size()) {
-        addToTaskWindow(wpTasks[i]);
+        addToTaskWindow(TasksList[i]);
         /* tasksWindow->Add(ftxui::MenuEntry(wpTasks[i].desc)); */
       }
     }
@@ -498,14 +562,19 @@ private:
       displayDashBoard();
       return;
     }
+    UpdateTasksList(workspaceIndex);
     tasksWindow->DetachAllChildren();
-    if (workspaceIndex < (int)workspaces.size()) {
-      sortTasks(workspaces[workspaceIndex].tasks, sortFunc);
-
-      for (auto &task : workspaces[workspaceIndex].tasks) {
-        task.updateStatus();
-        addToTaskWindow(task);
-      }
+    /* if (workspaceIndex < (int)workspaces.size()) { */
+    /*   sortTasks(workspaces[workspaceIndex].tasks, sortFunc); */
+    /**/
+    /*   for (auto &task : workspaces[workspaceIndex].tasks) { */
+    /*     task.updateStatus(); */
+    /*     addToTaskWindow(task); */
+    /*   } */
+    /* } */
+    for (auto &task : TasksList) {
+      task.updateStatus();
+      addToTaskWindow(task);
     }
     if (tasksWindow->ChildCount() == 0) {
 
@@ -597,8 +666,8 @@ private:
         // insert input element here
         tasksWindow->Add(newInput);
       }
-      if (i < workspaceTasks.size()) {
-        addToTaskWindow(workspaceTasks[i]);
+      if (i < TasksList.size()) {
+        addToTaskWindow(TasksList[i]);
       }
     }
     isInputState = true;
@@ -616,6 +685,41 @@ private:
     ftxui::MenuEntryOption entry_option;
     entry_option.transform = todoTransformer.StyleWorkspace(wp, true); // BUG:
     workspacePanel->Add(ftxui::MenuEntry(wp.name, entry_option));
+  }
+  void UpdateTasksList(int workspaceIndex) {
+    if (workspaceIndex < (int)workspaces.size()) {
+      TasksList.clear();
+
+      sortTasks(workspaces[workspaceIndex].tasks, sortFunc);
+
+      if (searchQuery == "") {
+        TasksList.resize(workspaces[workspaceIndex].tasks.size());
+        for (size_t i = 0; i < TasksList.size(); i++) {
+
+          TasksList[i] = workspaces[workspaceIndex].tasks[i];
+        }
+      } else {
+        // searching using searchQuery
+        //
+        //
+        for (auto task : workspaces[workspaceIndex].tasks) {
+          try {
+            std::regex pattern(searchQuery);
+
+            if (std::regex_search(task.desc, pattern)) {
+              TasksList.push_back(task);
+            }
+          } catch (const std::regex_error &e) {
+            searchQuery = "";
+            UpdateTasksList(workspaceIndex);
+          }
+        }
+      }
+      /* TasksList = workspaces[workspaceIndex].tasks; */
+      // sorting tasks
+
+      //
+    }
   }
 
   void sortTasks(std::vector<todoCore::TodoTask> &tasks,
@@ -637,6 +741,7 @@ public:
 
     loadData();
     updateAllView(workspaceSelected, maintaskSelected);
+
     Add(comp);
   }
   void setExitFunction(std::function<void()> q) { quit = std::move(q); }

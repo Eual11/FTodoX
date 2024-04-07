@@ -69,6 +69,7 @@ public:
       node["urgency_medium_icon"] = urgencyMediumIcon;
       node["urgency_high_icon"] = urgencyHighIcon;
       node["due_time_icon"] = dueTimeIcon;
+      node["search_icon"] = searchIcon;
       std::ofstream out("default.yaml");
       if (out.fail()) {
         std::cerr << "couldn't save default theme\n";
@@ -117,6 +118,7 @@ public:
     urgencyHighIcon = LoadedTheme["urgency_high_icon"].as<std::string>();
 
     dueTimeIcon = LoadedTheme["due_time_icon"].as<std::string>();
+    searchIcon = LoadedTheme["search_icon"].as<std::string>();
     return true;
   }
 
@@ -175,6 +177,7 @@ private:
   std::string urgencyMediumIcon = "";
   std::string urgencyHighIcon = "󰚌";
   std::string dueTimeIcon = "";
+  std::string searchIcon = "";
   std::string workspaceIcon;
   std::string urgencyIcon;
   ftxui::Decorator urgencyStyle = ftxui::color(hexToRGB(urgencyLowColor));
@@ -417,6 +420,21 @@ private:
         ftxui::color(hexToRGB(inputTextColor));
     return entry;
   }
+  ftxui::Element defaultStatusLineSearchInputStyle(ftxui::InputState &state) {
+    std::string icon;
+    if (state.is_placeholder)
+      state.element |= ftxui::dim;
+    if (state.focused)
+      icon = " " + searchIcon + " ";
+    else
+      icon = "  " + searchIcon;
+    ftxui::Element entry =
+        ftxui::hbox(
+            {ftxui::text(icon), state.element | ftxui::focusCursorUnderline}) |
+        ftxui::bgcolor(hexToRGB(selectedWorkspaceBGcolor)) |
+        ftxui::color(hexToRGB(inputTextColor));
+    return entry;
+  }
 
 public:
   std::string todobgColor = "#21283b";
@@ -534,10 +552,17 @@ public:
       return defaultTaskInputStyle(state);
     };
   }
-  std::function<ftxui::Element(ftxui::InputState)> StyleStatusLineInput() {
-    return [this](ftxui::InputState state) {
-      return defaultStatusLineInputStyle(state);
-    };
+  std::function<ftxui::Element(ftxui::InputState)>
+  StyleStatusLineInput(std::string type) {
+    if (type == "date") {
+      return [this](ftxui::InputState state) {
+        return defaultStatusLineInputStyle(state);
+      };
+    } else {
+      return [this](ftxui::InputState state) {
+        return defaultStatusLineSearchInputStyle(state);
+      };
+    }
   }
 
   std::function<ftxui::Element(const ftxui::EntryState &)> StyleEmptyTask() {

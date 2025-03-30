@@ -3,12 +3,8 @@ project(test VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-add_executable(eyaml ./src/yaml.cpp)
-add_executable(ftxeu ./src/todoTest.cpp)
-add_executable(testftx ./src/test.cpp)
-target_include_directories(ftxeu PRIVATE $ENV{CPLUS_INCLUDE_PATH})
-target_include_directories(testftx PRIVATE $ENV{CPLUS_INCLUDE_PATH} PRIVATE ./include/)
-target_include_directories(eyaml PRIVATE $ENV{CPLUS_INCLUDE_PATH} PRIVATE ./include/)
+add_executable(FTodoX ./src/main.cpp)
+target_include_directories(FTodoX PRIVATE $ENV{CPLUS_INCLUDE_PATH} PRIVATE ./include/)
 include(FetchContent)
 
 FetchContent_Declare(
@@ -23,15 +19,8 @@ if(NOT yaml-cpp_POPULATED)
   FetchContent_Populate(yaml-cpp)
   add_subdirectory(${yaml-cpp_SOURCE_DIR} ${yaml-cpp_BINARY_DIR})
 endif()
-target_link_libraries(eyaml PUBLIC yaml-cpp::yaml-cpp)
-target_link_libraries(testftx PUBLIC yaml-cpp::yaml-cpp) # The library or executable that require yaml-cpp library
-target_link_libraries(ftxeu 
-  PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-screen.lib"
-  PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-dom.lib"
-  PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-component.lib"
-  )
-target_link_libraries(testftx PUBLIC yaml-cpp::yaml-cpp) # The library or executable that require yaml-cpp library
-target_link_libraries(testftx 
+target_link_libraries(FTodoX PUBLIC yaml-cpp::yaml-cpp) # The library or executable that require yaml-cpp library
+target_link_libraries(FTodoX 
   PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-screen.lib"
   PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-dom.lib"
   PRIVATE "$ENV{C_LIBRARY_PATH}\\ftxui-component.lib"

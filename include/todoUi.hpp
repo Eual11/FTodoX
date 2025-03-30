@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <yaml-cpp/emitter.h>
+#include <yaml-cpp/exceptions.h>
 #include <yaml-cpp/node/parse.h>
 
 //  TODO: Sorting todos
@@ -73,16 +74,12 @@ private:
           if (tasksWindow->ChildCount() > 0)
             tasksWindow->ChildAt(0)->TakeFocus();
           StatusLineMode = "NORMAL";
-          std::cerr << "I CAN'T TAKE THIS PLACE\n";
-          StatusLineMode = "NORMAL";
           return true;
         }
-        // WARNING: MAYEB NOT?
       }
 
       if (event == ftxui::Event::Character('a')) {
-        // insertion operatipn
-        //
+        // insertion operation
         //
         if (workspacePanel->Focused() || workspaces.size() == 0) {
           // insertion to workplaces
@@ -107,11 +104,8 @@ private:
       }
       if (event == ftxui::Event::Character('c')) {
         // complete a task
-        // horrible
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             workspaces[workspaceSelected].tasks.size() > 0) {
-          auto &wp = workspaces[workspaceSelected].tasks[maintaskSelected];
-          /* wp.toggleCompleted(); */
           auto task = std::find(workspaces[workspaceSelected].tasks.begin(),
                                 workspaces[workspaceSelected].tasks.end(),
                                 TasksList[maintaskSelected]);
@@ -124,6 +118,7 @@ private:
       }
 
       if (event == ftxui::Event::Character('d')) {
+        //Add date
 
         if (tasksWindow->Focused() && !showDashBoard &&
             workspaces[workspaceSelected].tasks.size() > 0) {
@@ -164,6 +159,7 @@ private:
         return true;
       }
       if (event == ftxui::Event::Character('/')) {
+        //search operation
         if (tasksWindow->Focused() && !showDashBoard) {
           ftxui::InputOption option;
           option.multiline = false;
@@ -239,6 +235,7 @@ private:
         return true;
       }
       if (event == ftxui::Event::Character('+')) {
+        //increase urgency operation
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
@@ -254,6 +251,7 @@ private:
         }
       }
       if (event == ftxui::Event::Character('-')) {
+        //decrease urgency operation
         if (tasksWindow->Focused() && !showDashBoard && workspaces.size() > 0 &&
             maintaskSelected <
                 (int)workspaces[workspaceSelected].tasks.size()) {
@@ -276,8 +274,7 @@ private:
       }
       if (event == ftxui::Event::Character('s')) {
         // change the sorting order function to comething else
-        //
-        //
+        //sort operation
         if (tasksWindow->Focused()) {
           // sorting tasks
 
@@ -324,9 +321,6 @@ private:
       }
       if (event == ftxui::Event::Character('q')) {
         // quit
-        //
-        //
-        //
         saveData();
         quit();
       }
@@ -475,18 +469,27 @@ private:
   //
 
   void loadData() {
+    
     // do something
     //
     //
     // TODO: better name, better implementation
-    YAML::Node nodeData = YAML::LoadFile("../test.yaml");
+
+
+    
+    try {
+    YAML::Node nodeData = YAML::LoadFile(TASKS_FILE);
     if (nodeData.size() == 0 || !nodeData.IsSequence()) {
-      std::cerr << "Couldn't Open/Load Saved Todos :(";
       return;
     }
 
     for (auto wp : nodeData) {
       workspaces.push_back(wp.as<todoCore::Workspace>());
+    }
+    }
+    catch(std::exception& ex)
+    {
+      std::cerr<<ex.what()<<std::endl;
     }
   }
   void saveData() {
@@ -499,7 +502,7 @@ private:
     }
     emitter << YAML::EndSeq;
 
-    std::ofstream out("../test.yaml");
+    std::ofstream out(TASKS_FILE);
     if (out.fail()) {
       std::cerr << "Couldn't save\n";
       return;
@@ -731,7 +734,6 @@ private:
 
 public:
   todoUi() {
-    std::cout << "Shit Happend\n";
     // test for the container
     sortFunc = todoCore::TodoTask::sortByStatus;
     auto Maincomp = ftxui::Container::Horizontal({workspacePanel, tasksWindow});
@@ -740,11 +742,12 @@ public:
     auto comp = ftxui::Container::Vertical({Maincomp, statusLine});
 
     loadData();
+    
     updateAllView(workspaceSelected, maintaskSelected);
 
     Add(comp);
   }
-  void setExitFunction(std::function<void()> q) { quit = std::move(q); }
+  void setExitFunction(std::function<void()> q) { quit = std::move(q);  }
 };
 
 #endif

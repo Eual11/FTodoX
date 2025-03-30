@@ -19,6 +19,11 @@
 
 const int WORKPALCE_PROPERTY_COUNT = 4;
 const int TASK_PROPERTY_COUNT = 5;
+
+constexpr std::string TASKS_FILE = "tasks.yaml";
+constexpr std::string DEFAULT_THEME_FILE = "theme.yaml";
+
+      
 // the core for the todo list contains the objects of Workpalce
 // and TodoTask
 namespace todoCore {

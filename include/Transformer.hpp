@@ -70,14 +70,11 @@ public:
       node["urgency_high_icon"] = urgencyHighIcon;
       node["due_time_icon"] = dueTimeIcon;
       node["search_icon"] = searchIcon;
-      std::ofstream out("default.yaml");
+      std::ofstream out(DEFAULT_THEME_FILE);
       if (out.fail()) {
-        std::cerr << "couldn't save default theme\n";
         return false;
       } else {
         out << node;
-
-        std::cerr << "\nactuall worked\n";
         return true;
       }
     }
@@ -122,14 +119,13 @@ public:
     return true;
   }
 
-  Transformer(std::string themePath = "default.yaml") {
-    // do something based on the path
+  Transformer(std::string themePath =DEFAULT_THEME_FILE) {
 
     bool res = LoadTheme(themePath);
     if (!res) {
       std::cerr << "Couldn't Load theme\n";
     } else {
-      std::cerr << "not an error xD\n";
+      std::cerr << "Loaded Theme! \n";
     }
   }
 
@@ -208,7 +204,7 @@ private:
 
   ftxui::Element EmptyTaskStyle(const ftxui::EntryState &state) {
 
-    std::ifstream ascii_art("./ascii.txt");
+    std::ifstream ascii_art("no_tasks_banner.txt");
 
     if (ascii_art.fail()) {
       return ftxui::text("fail to load ascii");
@@ -230,7 +226,7 @@ private:
   }
   ftxui::Element DashboardStyle(const ftxui::EntryState &state) {
 
-    std::ifstream ascii_art("./dashboardascii.txt");
+    std::ifstream ascii_art("dashboard_banner.txt");
 
     if (ascii_art.fail()) {
       return ftxui::text("fail to load ascii");

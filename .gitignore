@@ -1,7 +1,6 @@
 .*
 !.gitignore
 build/**
-!/build/default.yaml
 examples/
 inspiration/
 lib/

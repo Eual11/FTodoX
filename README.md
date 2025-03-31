@@ -81,7 +81,7 @@ Some screenshots with different customized configuration !
 
 <a href="">
 
-<img src="https://img.youtube.com/v1/pCg-jklwKIU/0.jpg" width="640" height="320" alt="showcase"/> 
+<img src="https://img.youtube.com/vi/pCg-jklwKIU/sddefault.jpg" width="640" height="480" alt="showcase"/> 
 </a>
 
 

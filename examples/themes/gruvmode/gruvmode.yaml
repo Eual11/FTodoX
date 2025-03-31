@@ -1,0 +1,47 @@
+name: theme.yaml
+background_color: "#282828"
+todo_border_style: light
+status_line_color: "#141018"
+selected_task_background_color: "#504945"
+selected_workspace_background_color: "#504945"
+workspace_color: "#bdae93"
+selected_workspace_color: "#bdae93"
+workspace_header_color: "#080716"
+workspace_header_background: "#bdae93"
+focused_workspace_header_color: "#e7ebfa"
+focused_workspace_header_background: "#fe8019"
+tasks_header_color: "#080716"
+input_text_color: "#ebdbb2"
+tasks_header_background: "#bdae93"
+focused_tasks_header_color: "#e7ebfa"
+focused_tasks_header_background: "#fe8019"
+pending_task_color: "#fabd2f"
+pending_task_background: "#3c3836"
+completed_task_color: "#b8bb26"
+completed_task_background: "#3c3836"
+overdue_task_color: "#fb4934"
+overdue_task_background: "#3c3836"
+urgency_low_color: "#54e7ac"
+urgency_medium_color: "#d3e847"
+urgency_high_color: "#e75462"
+
+#banner
+no_tasks_banner_color: "#458588"
+no_tasks_banner_background: "#282828"
+dashboard_banner_color: "#458588"
+dashboard_banner_background: "#282828"
+
+###
+workspace_pointer: 
+task_pointer: 
+non_empty_workspace_icon: 
+empty_workspace_icon: 
+pending_task_icon: 
+completed_task_icon: 
+overdue_task_icon: 󰅗
+urgency_low_icon: 󰿷
+urgency_medium_icon: 
+urgency_high_icon: 󰚌
+due_time_icon: 
+search_icon: 
+empty_task_text: "It's Empty, Add More Tasks and Acheive them ^_^"

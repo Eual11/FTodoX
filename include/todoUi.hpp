@@ -427,17 +427,17 @@ private:
     // TODO: make this neater any how
     // basically all it does is styling the header for workspace and tasks
     // window based on their focus state
-    auto workspaceHeaderColor = color(hexToRGB("#080716"));
-    auto workspaceHeaderBGcolor = bgcolor(hexToRGB("#809be5"));
+    auto workspaceHeaderColor = color(hexToRGB(todoTransformer.workspaceHeaderColor));
+    auto workspaceHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.workspaceHeaderBGcolor));
     if (!workspacePanel->Focused()) {
-      workspaceHeaderColor = color(hexToRGB("#e7ebfa"));
-      workspaceHeaderBGcolor = bgcolor(hexToRGB("#363e5b"));
+      workspaceHeaderColor = color(hexToRGB(todoTransformer.focusedWorkspaceHeaderColor));
+      workspaceHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.focusedWorkspaceHeaderBGcolor));
     }
-    auto tasksHeaderColor = color(hexToRGB("#080716"));
-    auto tasksHeaderBGcolor = bgcolor(hexToRGB("#809be5"));
+    auto tasksHeaderColor = color(hexToRGB(todoTransformer.tasksHeaderColor));
+    auto tasksHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.tasksHeaderBGcolor));
     if (!tasksWindow->Focused()) {
-      tasksHeaderColor = color(hexToRGB("#e7ebfa"));
-      tasksHeaderBGcolor = bgcolor(hexToRGB("#363e5b"));
+      tasksHeaderColor = color(hexToRGB(todoTransformer.focusedTasksHeaderColor));
+      tasksHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.focusedTasksHeaderBGcolor));
     }
     // the text element with a filler is the header the empty text("") acts as a
     // seprarator (maybe change it to an empty element)

@@ -47,6 +47,23 @@ public:
       node["selected_workspace_background_color"] = selectedWorkspaceBGcolor;
       node["workspace_color"] = workspaceColor;
       node["selected_workspace_color"] = selectedWorkspaceColor;
+
+      // workspace header
+      node["workspace_header_color"] = workspaceHeaderColor;
+      node["workspace_header_background"] = workspaceHeaderBGcolor;
+
+      node["focused_workspace_header_color"] = focusedWorkspaceHeaderColor;
+      node["focused_workspace_header_background"] =
+          focusedWorkspaceHeaderBGcolor;
+
+      // tasks header
+
+      node["tasks_header_color"] = tasksHeaderColor;
+      node["tasks_header_background"] = tasksHeaderBGcolor;
+
+      node["focused_tasks_header_color"] = focusedTasksHeaderColor;
+      node["focused_tasks_header_background"] = focusedTasksHeaderBGcolor;
+
       node["pending_task_color"] = pendingTaskColor;
       node["pending_task_background"] = pendingTaskBackground;
       node["completed_task_color"] = completedTaskColor;
@@ -88,6 +105,29 @@ public:
     workspaceColor = LoadedTheme["workspace_color"].as<std::string>();
     selectedWorkspaceColor =
         LoadedTheme["selected_workspace_color"].as<std::string>();
+
+    // workspace header
+    workspaceHeaderColor =
+        LoadedTheme["workspace_header_color"].as<std::string>();
+    workspaceHeaderBGcolor =
+        LoadedTheme["workspace_header_background"].as<std::string>();
+
+    focusedWorkspaceHeaderColor =
+        LoadedTheme["focused_workspace_header_color"].as<std::string>();
+    focusedWorkspaceHeaderBGcolor =
+        LoadedTheme["focused_workspace_header_background"].as<std::string>();
+
+    // tasks header
+
+    tasksHeaderColor = LoadedTheme["tasks_header_color"].as<std::string>();
+    tasksHeaderBGcolor =
+        LoadedTheme["tasks_header_background"].as<std::string>();
+
+    focusedTasksHeaderColor =
+        LoadedTheme["focused_tasks_header_color"].as<std::string>();
+    focusedTasksHeaderBGcolor =
+        LoadedTheme["focused_tasks_header_background"].as<std::string>();
+
     pendingTaskColor = LoadedTheme["pending_task_color"].as<std::string>();
     pendingTaskBackground =
         LoadedTheme["pending_task_background"].as<std::string>();
@@ -119,7 +159,7 @@ public:
     return true;
   }
 
-  Transformer(std::string themePath =DEFAULT_THEME_FILE) {
+  Transformer(std::string themePath = DEFAULT_THEME_FILE) {
 
     bool res = LoadTheme(themePath);
     if (!res) {
@@ -129,7 +169,7 @@ public:
     }
   }
 
-private:
+public:
   // styling variables
   ftxui::Decorator todoBorderStyle = ftxui::borderLight;
   // border style
@@ -145,8 +185,23 @@ private:
 
   std::string selectedWorkspaceBGcolor = "#373e4f";
 
-  std::string workspaceColor =
-      "#93a4c3"; // text color for non selecte workspace
+  // workspace header
+  std::string workspaceHeaderColor = "#080716";
+  std::string workspaceHeaderBGcolor = "#809be5";
+
+  std::string focusedWorkspaceHeaderColor = "#e7ebfa";
+  std::string focusedWorkspaceHeaderBGcolor = "#363e5b";
+
+  // task header
+
+  std::string tasksHeaderColor = "#080716";
+  std::string tasksHeaderBGcolor = "#809be5";
+
+  std::string focusedTasksHeaderColor = "#e7ebfa";
+  std::string focusedTasksHeaderBGcolor = "#363e5b";
+
+  std::string workspaceColor = "#93a4c3";
+  // text color for non selecte workspace
   std::string selectedWorkspaceColor = "#93a4c3";
   std::string pendingTaskColor = "#ebcb8b";
   std::string pendingTaskBackground = "#373e4f";

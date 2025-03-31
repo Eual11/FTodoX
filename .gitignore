@@ -5,4 +5,5 @@ build/**
 examples/
 inspiration/
 lib/
+!themes
 

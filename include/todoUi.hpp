@@ -3,7 +3,6 @@
 #include "./todoCore.hpp"
 #include "Transformer.hpp"
 #include "Utils.hpp"
-#include "transforms.hpp"
 #include <algorithm>
 #include <chrono>
 #include <ctime>
@@ -429,13 +428,13 @@ private:
     // window based on their focus state
     auto workspaceHeaderColor = color(hexToRGB(todoTransformer.workspaceHeaderColor));
     auto workspaceHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.workspaceHeaderBGcolor));
-    if (!workspacePanel->Focused()) {
+    if (workspacePanel->Focused()) {
       workspaceHeaderColor = color(hexToRGB(todoTransformer.focusedWorkspaceHeaderColor));
       workspaceHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.focusedWorkspaceHeaderBGcolor));
     }
     auto tasksHeaderColor = color(hexToRGB(todoTransformer.tasksHeaderColor));
     auto tasksHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.tasksHeaderBGcolor));
-    if (!tasksWindow->Focused()) {
+    if (tasksWindow->Focused()) {
       tasksHeaderColor = color(hexToRGB(todoTransformer.focusedTasksHeaderColor));
       tasksHeaderBGcolor = bgcolor(hexToRGB(todoTransformer.focusedTasksHeaderBGcolor));
     }
@@ -452,9 +451,9 @@ private:
 
     auto mainView = ftxui::hbox(
         {workspaceview | hcenter | ftxui::size(ftxui::WIDTH, ftxui::EQUAL, 30) |
-             ftxui::frame | todoBorderStyle,
+             ftxui::frame | todoTransformer.todoBorderStyle,
 
-         taskView | vscroll_indicator | flex | yframe | todoBorderStyle});
+         taskView | vscroll_indicator | flex | yframe | todoTransformer.todoBorderStyle});
     auto statusLineView =
         todoTransformer.StatusLineRender(statusLine, StatusLineMode);
     return ftxui::vbox({mainView | ftxui::flex,
@@ -462,8 +461,6 @@ private:
                             ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 1) |
                             ftxui::xflex_grow}) |
            ftxui::bgcolor(ftxui::Color(hexToRGB(todoTransformer.todobgColor)));
-    //|
-    //     ftxui::bgcolor(ftxui::Color(hexToRGB("#21283b")));
   }
 
   //@breif: loads tasks and subsquent workplaces

@@ -41,10 +41,11 @@ public:
 
       node["name"] = themePath;
       node["background_color"] = todobgColor;
-      node["todo_border_style"] = "light";
+      node["todo_border_style"] = "light"; // unused for now
       node["status_line_color"] = statusLineColor;
       node["selected_task_background_color"] = selectedTaskBGcolor;
       node["selected_workspace_background_color"] = selectedWorkspaceBGcolor;
+      node["input_text_color"] = inputTextColor;
       node["workspace_color"] = workspaceColor;
       node["selected_workspace_color"] = selectedWorkspaceColor;
 
@@ -74,6 +75,14 @@ public:
 
       node["urgency_medium_color"] = urgencyMediumColor;
       node["urgency_high_color"] = urgencyHighColor;
+
+      // banners
+
+      node["no_tasks_banner_color"] = noTasksBannerColor;
+      node["no_tasks_banner_background"] = noTasksBannerBackground;
+
+      node["dashboard_banner_color"] = dashboardBannerColor;
+      node["dashboard_banner_background"] = dashboardBannerBackground;
 
       node["workspace_pointer"] = workspacePointer;
       node["task_pointer"] = taskPointer;
@@ -105,6 +114,9 @@ public:
     workspaceColor = LoadedTheme["workspace_color"].as<std::string>();
     selectedWorkspaceColor =
         LoadedTheme["selected_workspace_color"].as<std::string>();
+    inputTextColor = LoadedTheme["input_text_color"].as<std::string>();
+    selectedWorkspaceBGcolor =
+        LoadedTheme["selected_workspace_background_color"].as<std::string>();
 
     // workspace header
     workspaceHeaderColor =
@@ -141,6 +153,19 @@ public:
     urgencyLowColor = LoadedTheme["urgency_low_color"].as<std::string>();
     urgencyMediumColor = LoadedTheme["urgency_medium_color"].as<std::string>();
     urgencyHighColor = LoadedTheme["urgency_high_color"].as<std::string>();
+
+    // banners
+
+    noTasksBannerColor = LoadedTheme["no_tasks_banner_color"].as<std::string>();
+    noTasksBannerBackground =
+        LoadedTheme["no_tasks_banner_background"].as<std::string>();
+
+    dashboardBannerColor =
+        LoadedTheme["dashboard_banner_color"].as<std::string>();
+
+    dashboardBannerBackground =
+
+        LoadedTheme["dashboard_banner_background"].as<std::string>();
 
     workspacePointer = LoadedTheme["workspace_pointer"].as<std::string>();
     taskPointer = LoadedTheme["task_pointer"].as<std::string>();
@@ -213,6 +238,14 @@ public:
   std::string urgencyMediumColor = "#d3e847";
   std::string urgencyHighColor = "#e75462";
 
+  // banner colors
+
+  std::string noTasksBannerColor = "#41a7fc";
+  std::string noTasksBannerBackground = "#21283b";
+
+  std::string dashboardBannerColor = "#41a7fc";
+  std::string dashboardBannerBackground = "#21283b";
+
   /* std::string todobgColor = "#21283b"; // default bavground color for the app
    */
   // icons
@@ -277,7 +310,8 @@ public:
     entryVec.push_back(
         ftxui::text("It's Empty, Add More Tasks and Acheive them ^_^"));
     return ftxui::vbox(entryVec) | ftxui::flex_grow | ftxui::center |
-           ftxui::color(hexToRGB("#41a7fc"));
+           ftxui::color(hexToRGB(noTasksBannerColor)) |
+           ftxui::color(hexToRGB(noTasksBannerBackground));
   }
   ftxui::Element DashboardStyle(const ftxui::EntryState &state) {
 
@@ -327,11 +361,10 @@ public:
         ftxui::color(hexToRGB(completedTaskColor)));
 
     return ftxui::vbox(entryVec) | ftxui::flex_grow | ftxui::center |
-           ftxui::color(hexToRGB("#41a7fc"));
+           ftxui::color(hexToRGB(dashboardBannerColor)) |
+           ftxui::bgcolor(hexToRGB(dashboardBannerBackground));
   }
   ftxui::Element defaultTaskStyle(const ftxui::EntryState &state) {
-    /* ftxui::Element entry = ftxui::text(std::move(label)); Documents and
-     * Settings*/
 
     std::string icon;
     if (state.focused)
@@ -343,9 +376,7 @@ public:
         ftxui::color(hexToRGB(pendingTaskColor));
     ;
     if (state.active) {
-      entry |=
-          ftxui::bold |
-          ftxui::color(hexToRGB(pendingTaskColor)); // NOTE: please remove this
+      entry |= ftxui::bold;
       ;
     }
     if (state.focused) {
@@ -542,7 +573,7 @@ public:
                          ftxui::text(this->urgencyIcon) | this->urgencyStyle});
         if (state.focused) {
           entry |=
-              ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+              ftxui::bold | ftxui::bgcolor(hexToRGB(pendingTaskBackground));
         }
         return entry;
       };
@@ -587,7 +618,7 @@ public:
                          ftxui::text(urgencyIcon) | urgencyStyle});
         if (state.focused) {
           entry |=
-              ftxui::bold | ftxui::bgcolor(hexToRGB(completedTaskBackground));
+              ftxui::bold | ftxui::bgcolor(hexToRGB(overdueTaskBackground));
         }
         return entry;
       };

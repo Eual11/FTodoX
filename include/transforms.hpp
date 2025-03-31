@@ -29,8 +29,6 @@ auto selectedWorkspaceBGcolor = ftxui::bgcolor(hexToRGB("#373e4f"));
 auto workspaceColor =
     color(hexToRGB("#93a4c3")); // text color for non selecte workspace
 auto selectedWorkspaceColor = color(hexToRGB("#93a4c3"));
-auto pendingTaskColor = ftxui::color(hexToRGB("#ebcb8b"));
-auto pendingTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
 auto completedTaskColor = ftxui::color(hexToRGB("#98c379"));
 auto compeletedTaskBackground = ftxui::bgcolor(hexToRGB("#373e4f"));
 

@@ -57,6 +57,7 @@ private:
       ftxui::Container::Vertical({}, &maintaskSelected);
 
   ftxui::Component statusLine = ftxui::Container::Horizontal({});
+  public:
   bool OnEvent(ftxui::Event event) override {
     if (isInputState && !newInput->Active()) {
       // reseting the UI if the input element is no longer active
@@ -328,6 +329,7 @@ private:
 
     return ftxui::ComponentBase::OnEvent(event);
   }
+  private:
 
   void insertWorkspace(size_t index, todoCore::Workspace &workspace) {
     workspaces.insert(workspaces.begin() + index, workspace);

@@ -2,7 +2,7 @@
 !.gitignore
 build/**
 !build/Release/theme.yaml
-examples/
+!examples/
 inspiration/
 lib/
 !themes

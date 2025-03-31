@@ -96,6 +96,9 @@ public:
       node["urgency_high_icon"] = urgencyHighIcon;
       node["due_time_icon"] = dueTimeIcon;
       node["search_icon"] = searchIcon;
+
+      //text
+      node["empty_task_text"] = emptyTaskText;
       std::ofstream out(DEFAULT_THEME_FILE);
       if (out.fail()) {
         return false;
@@ -181,6 +184,8 @@ public:
 
     dueTimeIcon = LoadedTheme["due_time_icon"].as<std::string>();
     searchIcon = LoadedTheme["search_icon"].as<std::string>();
+
+    emptyTaskText = LoadedTheme["empty_task_text"].as<std::string>();
     return true;
   }
 
@@ -264,6 +269,10 @@ public:
   std::string searchIcon = "";
   std::string workspaceIcon;
   std::string urgencyIcon;
+
+  //banner text
+
+  std::string emptyTaskText ="It's Empty, Add More Tasks and Acheive them ^_^";
   ftxui::Decorator urgencyStyle = ftxui::color(hexToRGB(urgencyLowColor));
 
   ftxui::Element selectedWorkspaceStyle(const ftxui::EntryState &state) {
@@ -304,11 +313,11 @@ public:
     }
     entryVec.insert(entryVec.begin(),
                     ftxui::emptyElement() |
-                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 10));
+                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 4));
     entryVec.push_back(ftxui::text(""));
 
     entryVec.push_back(
-        ftxui::text("It's Empty, Add More Tasks and Acheive them ^_^"));
+        ftxui::text(emptyTaskText));
     return ftxui::vbox(entryVec) | ftxui::flex_grow | ftxui::center |
            ftxui::color(hexToRGB(noTasksBannerColor)) |
            ftxui::color(hexToRGB(noTasksBannerBackground));
@@ -327,7 +336,7 @@ public:
     }
     entryVec.insert(entryVec.begin(),
                     ftxui::emptyElement() |
-                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 7));
+                        ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, 4));
     entryVec.push_back(ftxui::text(""));
     entryVec.push_back(ftxui::separator());
 

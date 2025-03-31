@@ -1,6 +1,7 @@
 .*
 !.gitignore
 build/**
+!build/Release/theme.yaml
 examples/
 inspiration/
 lib/
